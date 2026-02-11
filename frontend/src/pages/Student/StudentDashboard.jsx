@@ -5,7 +5,7 @@ function StudentDashboard() {
   return (
     <div className='flex'>
       <StudentNavBar />
-      <div>blah blah</div>
+      <div>blah blah blah</div>
     </div>
   )
 }

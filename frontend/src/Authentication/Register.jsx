@@ -13,7 +13,7 @@ function Register() {
     lastName: '',
     phone: '',
     email: '',
-    role: '',
+    role: 'STUDENT',
     password: '',
     confirmPassword: '',
     agreed: false
@@ -78,7 +78,7 @@ function Register() {
          }
 
         alert("Registration successful!");
-        navigate('/home');
+        (role == 'STUDENT') ? navigate('/student-dashboard') : navigate('/faculty-dashboard');
       } catch (error) {
         console.error("Registration Error:", error);
         if (error.code === 'auth/email-already-in-use') {

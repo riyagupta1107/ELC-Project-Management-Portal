@@ -4,7 +4,7 @@ export const createUser = async(req, res) => {
     try {
         const {firebaseUid, email, role, firstName, lastName} = req.body;
 
-        if (!firebaseUid || !email || !role || !firstName || !lastName) {
+        if (!firebaseUid || !email || !role?.trim() || !firstName || !lastName) {
             return res.status(400).json({ message: "Missing fields" });
         }
 
