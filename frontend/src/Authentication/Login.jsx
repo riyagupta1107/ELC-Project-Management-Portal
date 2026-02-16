@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '../firebase.js';
+import axios from 'axios';
+
 import bgImage from '../assets/thapar-bg.jpeg'
 import logo from '../assets/thapar-logo-new.png';
 
@@ -31,18 +33,13 @@ function Login() {
 
       const user = userCredential.user;
       
-      const response = await fetch("http://localhost:5000/users/profile", {
-        method: "GET",
+      const response = await axios.get("http://localhost:5000/users/profile", {
         headers: {
           "Content-Type": "application/json",
           "x-firebase-uid": user.uid,
         },
       });
-
-      if (!response.ok) {
-        throw new Error("Failed to fetch user profile");
-      }
-      const data = await response.json();
+      const data = response.data;
       const role = data.role;
 
       if (role === "FACULTY") {

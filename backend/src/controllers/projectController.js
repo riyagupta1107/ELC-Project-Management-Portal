@@ -1,17 +1,19 @@
 import Project from "../models/Project.js";
+import User from "../models/User.js";
 
 // Add a new project
 export const addProject = async(req,res) => {
     try {
-        const {title, description, students, status} = req.body;
+        const {title, domain, description, students, status} = req.body;
         const professorUid = req.user.firebaseUid;
 
-        if (!title || !description) {
-            return res.status(400).json({message: "Title and Description are required"});
+        if (!title || !description || !domain) {
+            return res.status(400).json({message: "Title, Domain and Description are required"});
         }
+        const domainArray = Array.isArray(domain) ? domain : [domain];
 
         const newProject = await Project.create({
-            title, description, students: students || 1, status: status || "Ongoing", professorUid, enrolledStudents: []
+            title, domain: domainArray, description, students: students || 1, status: status || "Ongoing", professorUid, enrolledStudents: []
         });
         res.status(201).json(newProject);
     } catch(error) {
@@ -19,7 +21,30 @@ export const addProject = async(req,res) => {
     }
 };
 
-// Get projects
+// Get all projects
+export const getAllProjects = async(req,res) => {
+    try {
+        const projects = await Project.find().sort({createdAt: -1}).lean();
+        const professorUids = projects.map(p => p.professorUid);
+        const professors = await User.find({ firebaseUid: { $in: professorUids } }).select('firebaseUid firstName lastName');
+
+        const professorMap = {};
+        professors.forEach(prof => {
+            professorMap[prof.firebaseUid] = `${prof.firstName} ${prof.lastName}`;
+        });
+
+        const projectsWithNames = projects.map(p => ({
+            ...p,
+            professorName: professorMap[p.professorUid] || "Professor"
+        }));
+
+        res.status(200).json(projectsWithNames);
+    } catch(error) {
+        res.status(500).json({message: "Server error"});
+    }
+}
+
+// Get projects for a professor
 export const getProjects = async(req,res) => {
     try {
         const professorUid = req.user.firebaseUid;
@@ -30,7 +55,7 @@ export const getProjects = async(req,res) => {
     }
 };
 
-// Get projects for Students
+// Get projects for a student
 export const getStudentProjects = async(req,res) => {
     try {
         const studentUid = req.user.firebaseUid;
