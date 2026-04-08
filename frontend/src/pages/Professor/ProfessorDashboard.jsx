@@ -5,6 +5,7 @@ import { onAuthStateChanged } from 'firebase/auth';
 import axios from 'axios';
 import logo from '../../assets/thapar-logo.jpg';
 
+
 // --- CONSTANTS ---
 const DOMAINS = [
   "Web Development",
@@ -37,18 +38,23 @@ function ProfessorDashboard() {
   });
 
   // --- 1. FETCH PROJECTS FROM DB ---
-  const fetchProjects = async (user) => {
+  // --- 1. FETCH PROJECTS FROM DB ---
+  const fetchProjects = async () => {
     try {
-      const response = await axios.get("http://localhost:5000/projects/my-prof-projects", {
+      const token = await auth.currentUser.getIdToken();
+
+      const response = await axios.get("http://localhost:5000/api/projects/my-prof-projects", {
         headers: {
-          "x-firebase-uid": user.uid, // Auth Header
-        },
+          "Authorization": `Bearer ${token}`
+        }
       });
-      setProjects(response.data);
+
+      setProjects(response.data); 
     } catch (error) {
       console.error("Error fetching projects:", error);
     } finally {
-      setLoading(false);
+      // FIX: Tell the UI to stop loading!
+      setLoading(false); 
     }
   };
 
@@ -92,24 +98,30 @@ function ProfessorDashboard() {
   };
 
   // --- 4. HANDLE FORM SUBMIT ---
+  // --- 4. HANDLE FORM SUBMIT ---
   const handleCreateProject = async (e) => {
     e.preventDefault();
     const user = auth.currentUser;
     if (!user) return;
 
     try {
-      const response = await axios.post("http://localhost:5000/projects/add", newProject, {
+      // FIX 1: Get the secure token
+      const token = await user.getIdToken();
+
+      // FIX 2: Add /api and use the Bearer token header
+      const response = await axios.post("http://localhost:5000/api/projects/add", newProject, {
         headers: {
-          "x-firebase-uid": user.uid,
+          "Authorization": `Bearer ${token}`
         },
       });
 
-        const createdProject = response.data;
-        setProjects([createdProject, ...projects]); // Add new project to top of list
-        setIsModalOpen(false); // Close Modal
-        setNewProject({ title: '', domain:[], description: '', students: 0, status: 'Ongoing' }); // Reset Form
-        alert("Project Created Successfully!");
+      const createdProject = response.data;
+      setProjects([createdProject, ...projects]); 
+      setIsModalOpen(false); 
+      setNewProject({ title: '', domain:[], description: '', students: 0, status: 'Ongoing' }); 
+      alert("Project Created Successfully!");
     } catch (error) {
+      console.error(error);
       alert("Failed to create project");
     }
   };

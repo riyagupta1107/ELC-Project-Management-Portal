@@ -68,7 +68,6 @@ function Register() {
           lastName: formData.lastName,
         });
 
-
         alert("Registration successful!");
         (formData.role == 'STUDENT') ? navigate('/student-dashboard') : navigate('/faculty-dashboard');
       } catch (error) {

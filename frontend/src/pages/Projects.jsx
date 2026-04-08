@@ -4,6 +4,7 @@ import axios from 'axios';
 import { auth } from '../firebase';
 import logo from './../assets/thapar-logo.jpg';
 
+
 // --- CONSTANTS ---
 const DOMAINS = [
   "All Domains",
@@ -28,6 +29,7 @@ function Projects() {
   const [projects, setProjects] = useState([]);
   const [filteredProjects, setFilteredProjects] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [allProjects, setAllProjects] = useState([]);
   
   // Search & Filter State
   const [searchTerm, setSearchTerm] = useState('');
@@ -35,29 +37,31 @@ function Projects() {
 
   // --- 1. FETCH ALL PROJECTS ---
   useEffect(() => {
-    const fetchAllProjects = async () => {
-      try {
-        const user = auth.currentUser;
-        if (!user) return; 
+    
 
-        // Fetch from backend (Now returns professorName too)
-        const response = await axios.get("http://localhost:5000/projects/all-projects", {
-          headers: {
-            "x-firebase-uid": user.uid,
-          },
-        });
+// ... inside your component
+// --- 1. FETCH PROJECTS FROM DB ---
+  const fetchProjects = async () => {
+    try {
+      const token = await auth.currentUser.getIdToken();
 
-        setProjects(response.data);
-        setFilteredProjects(response.data); 
-      } catch (error) {
-        console.error("Failed to fetch projects:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
+      const response = await axios.get("http://localhost:5000/api/projects/all-projects", {
+        headers: {
+          "Authorization": `Bearer ${token}`
+        }
+      });
+
+      setProjects(response.data); 
+    } catch (error) {
+      console.error("Error fetching projects:", error);
+    } finally {
+      // FIX: Tell the UI to stop loading!
+      setLoading(false); 
+    }
+  };
 
     const unsubscribe = auth.onAuthStateChanged((user) => {
-        if (user) fetchAllProjects();
+        if (user) fetchProjects();
     });
 
     return () => unsubscribe();
