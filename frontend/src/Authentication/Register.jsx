@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
 import { auth } from '../firebase.js';
+import axios from 'axios';
+
 import bgImage from '../assets/thapar-bg.jpeg';
 import logo from '../assets/thapar-logo-new.png';
 
@@ -13,7 +15,7 @@ function Register() {
     lastName: '',
     phone: '',
     email: '',
-    role: '',
+    role: 'STUDENT',
     password: '',
     confirmPassword: '',
     agreed: false
@@ -58,27 +60,16 @@ function Register() {
         });
 
         // 3. Sync with MongoDB Backend (Essential for your app logic)
-        // Note: Assuming your backend is running on port 5000
-        const response = await fetch("http://localhost:5000/users/create", {
-           method: "POST",
-           headers: {
-             "Content-Type": "application/json",
-           },
-           body: JSON.stringify({
-             firebaseUid: user.uid,
-             email: user.email,
-             role: formData.role, 
-             firstName: formData.firstName,
-             lastName: formData.lastName,
-           }),
-         });
-
-         if (!response.ok) {
-            throw new Error('Failed to save user to database');
-         }
+        await axios.post("http://localhost:5000/users/create", {
+          firebaseUid: user.uid,
+          email: user.email,
+          role: formData.role, 
+          firstName: formData.firstName,
+          lastName: formData.lastName,
+        });
 
         alert("Registration successful!");
-        navigate('/home');
+        (formData.role == 'STUDENT') ? navigate('/student-dashboard') : navigate('/faculty-dashboard');
       } catch (error) {
         console.error("Registration Error:", error);
         if (error.code === 'auth/email-already-in-use') {

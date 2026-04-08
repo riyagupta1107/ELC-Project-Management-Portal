@@ -4,6 +4,10 @@ import Register from './Authentication/Register';
 import Home from './pages/Home';
 import StudentDashboard from './pages/Student/StudentDashboard'
 import FacultyDashboard from './pages/Professor/ProfessorDashboard'
+import ProfessorProfile from './pages/Professor/ProfessorProfile'
+import Projects from "./pages/Projects";
+import Faculty from './pages/Faculties'
+import ProtectedRoute from './components/ProtectedRoute';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 
 function App() {
@@ -13,11 +17,22 @@ function App() {
         <Route path='/' element={<Login />} />
         <Route path='/register' element={<Register />} />
         <Route path='/home' element={<Home />} />
-        <Route path='/student-dashboard' element={<StudentDashboard />} />
-        <Route path='/faculty-dashboard' element={<FacultyDashboard />} />
+        <Route path='/projects' element={<Projects />} />
+        <Route path='/professor-profile' element={<ProfessorProfile />} />
+        <Route path='/faculties' element={<Faculty />} />
+        
+        {/* FACULTY Only Routes */}
+        <Route element={<ProtectedRoute allowedRole="FACULTY" />}>
+          <Route path="/faculty-dashboard" element={<FacultyDashboard />} />
+        </Route>
+
+        {/* STUDENT Only Routes */}
+        <Route element={<ProtectedRoute allowedRole="STUDENT" />}>
+          <Route path="/student-dashboard" element={<StudentDashboard />} />
+        </Route>
       </Routes>
     </Router>
   )
 }
 
-export default App
+export default App;
