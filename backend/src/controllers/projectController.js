@@ -65,3 +65,37 @@ export const getStudentProjects = async(req,res) => {
         res.status(500).json({message: "Server Error"});
     }
 };
+
+export const getProjectById = async (req, res) => {
+    try {
+        const projectId = req.params.id;
+        
+        // Find the project by its MongoDB _id
+        const project = await Project.findById(projectId);
+
+        if (!project) {
+            return res.status(404).json({ message: "Project not found." });
+        }
+
+        // Fetch the professor's name using their firebaseUid
+        const professor = await User.findOne({ firebaseUid: project.professorUid });
+        
+        // Convert the Mongoose document to a plain JavaScript object so we can append data
+        const projectData = project.toObject();
+        
+        if (professor) {
+            projectData.professorName = `${professor.firstName} ${professor.lastName}`;
+        }
+
+        res.status(200).json(projectData);
+    } catch (error) {
+        console.error("Error fetching project by ID:", error);
+        
+        // If the ID is completely invalid/malformed, Mongoose throws a CastError
+        if (error.name === 'CastError') {
+            return res.status(400).json({ message: "Invalid project ID format." });
+        }
+        
+        res.status(500).json({ message: "Server error while fetching project details." });
+    }
+};

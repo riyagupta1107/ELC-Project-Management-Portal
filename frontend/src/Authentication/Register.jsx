@@ -60,7 +60,7 @@ function Register() {
         });
 
         // 3. Sync with MongoDB Backend (Essential for your app logic)
-        await axios.post("http://localhost:5000/users/create", {
+        await axios.post("http://localhost:5000/api/users/create", {
           firebaseUid: user.uid,
           email: user.email,
           role: formData.role, 
@@ -69,7 +69,7 @@ function Register() {
         });
 
         alert("Registration successful!");
-        (formData.role == 'STUDENT') ? navigate('/student-dashboard') : navigate('/faculty-dashboard');
+        navigate('/');
       } catch (error) {
         console.error("Registration Error:", error);
         if (error.code === 'auth/email-already-in-use') {

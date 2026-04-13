@@ -7,6 +7,8 @@ import FacultyDashboard from './pages/Professor/ProfessorDashboard'
 import ProfessorProfile from './pages/Professor/ProfessorProfile'
 import Projects from "./pages/Projects";
 import Faculty from './pages/Faculties'
+import ProjectDetails from './pages/Student/ProjectDetails';
+import ApplyModal from './pages/Student/ApplyModal';
 import ProtectedRoute from './components/ProtectedRoute';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 
@@ -20,7 +22,9 @@ function App() {
         <Route path='/projects' element={<Projects />} />
         <Route path='/professor-profile' element={<ProfessorProfile />} />
         <Route path='/faculties' element={<Faculty />} />
-        
+        <Route path='/project-details/:id' element={<ProjectDetails />} />
+        <Route path='/apply-modal/:id' element={<ApplyModal />} />
+
         {/* FACULTY Only Routes */}
         <Route element={<ProtectedRoute allowedRole="FACULTY" />}>
           <Route path="/faculty-dashboard" element={<FacultyDashboard />} />
