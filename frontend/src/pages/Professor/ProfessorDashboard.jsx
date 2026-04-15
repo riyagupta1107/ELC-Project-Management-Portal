@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Link } from 'react-router-dom';
 import { auth } from '../../firebase';
 import { onAuthStateChanged } from 'firebase/auth';
@@ -331,6 +332,7 @@ function NavLink({ to, children, active }) {
 }
 
 function ProjectCard({ project, isPast }) {
+  const navigate = useNavigate();
   const getDomainColor = (domain) => {
     if (domain.includes("AI") || domain.includes("Machine")) return "bg-purple-50 text-purple-700 border-purple-200";
     if (domain.includes("Web")) return "bg-blue-50 text-blue-700 border-blue-200";
@@ -357,9 +359,16 @@ function ProjectCard({ project, isPast }) {
         <p className="text-gray-600 text-sm line-clamp-3">{project.description}</p>
       </div>
       <div className="mt-4 pt-4 border-t border-gray-100 flex items-center justify-between">
-        
         <span className="text-xs font-bold text-gray-500">{project.students} Students</span>
-        <span className="text-sm font-medium text-brickRed cursor-pointer hover:underline">Manage &rarr;</span>
+        
+        {/* Update this span to trigger navigation */}
+        <span 
+          className="text-sm font-medium text-brickRed cursor-pointer hover:underline"
+          onClick={() => navigate(`/manage-project/${project._id}`)}
+        >
+          Manage &rarr;
+        </span>
+        
       </div>
     </div>
   );

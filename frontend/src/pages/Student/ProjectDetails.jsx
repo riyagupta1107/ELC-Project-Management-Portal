@@ -35,14 +35,19 @@ function ProjectDetails() {
 
       
       try {
-        // const token = await auth.currentUser.getIdToken();
-        // TODO: This is where you will send the data to your new backend route!
-        // await axios.post(`http://localhost:5000/api/applications/apply/${id}`, applicationData, { headers: { "Authorization": `Bearer ${token}` }});
-        
-        // Simulating network request for now
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        
-        alert("Application submitted successfully!");
+        const token = await auth.currentUser.getIdToken();
+        await axios.post(
+          'http://localhost:5000/api/applications/apply',
+          {
+            projectId: id,
+            message: applicationData.message,
+            resumeLink: applicationData.resumeLink
+          },
+          {
+            headers: {"Authorization": `Bearer ${token}`}
+          }
+        );
+        alert("Application submitted succesfully");
         toggleModal();
       } catch (err) {
         console.error("Error submitting application", err);
