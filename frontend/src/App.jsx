@@ -10,6 +10,7 @@ import Faculty from './pages/Faculties'
 import ProjectDetails from './pages/Student/ProjectDetails';
 import ApplyModal from './pages/Student/ApplyModal';
 import ProtectedRoute from './components/ProtectedRoute';
+import ManageProject from './pages/Professor/ManageProject';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 
 function App() {
@@ -29,6 +30,7 @@ function App() {
         <Route element={<ProtectedRoute allowedRole="FACULTY" />}>
           <Route path="/faculty-dashboard" element={<FacultyDashboard />} />
         </Route>
+        <Route path='/manage-project/:id' element={< ManageProject />} />
 
         {/* STUDENT Only Routes */}
         <Route element={<ProtectedRoute allowedRole="STUDENT" />}>
