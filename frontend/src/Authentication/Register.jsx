@@ -71,7 +71,7 @@ function Register() {
         await signOut(auth);
 
         alert("Registration successful!");
-        (formData.role == 'STUDENT') ? navigate('/student-dashboard') : navigate('/faculty-dashboard');
+        navigate('/');
       } catch (error) {
         console.error("Registration Error:", error);
         if (error.code === 'auth/email-already-in-use') {

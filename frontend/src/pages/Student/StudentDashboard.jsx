@@ -168,7 +168,10 @@ function StudentDashboard() {
   // --- DATA FETCHING ---
   const fetchAllProjects = async () => {
     try {
-      const res = await axios.get('http://localhost:5000/projects/all');
+      const token = await auth.currentUser.getIdToken();
+      const res = await axios.get('http://localhost:5000/api/projects/all-projects', {
+        headers: { "Authorization": `Bearer ${token}` }
+      });
       setAllProjects(res.data);
     } catch (err) {
       console.error('Error fetching projects:', err);
@@ -177,8 +180,9 @@ function StudentDashboard() {
 
   const fetchApplications = async (user) => {
     try {
-      const res = await axios.get('http://localhost:5000/applications/my-applications', {
-        headers: { 'x-firebase-uid': user.uid },
+      const token = await user.getIdToken();
+      const res = await axios.get('http://localhost:5000/api/applications/my-applications', {
+        headers: { "Authorization": `Bearer ${token}` },
       });
       setApplications(res.data);
       setEnrolled(res.data.filter((a) => a.status === 'Accepted'));
@@ -213,10 +217,11 @@ function StudentDashboard() {
     const user = auth.currentUser;
     if (!user || !applyModal) return;
     try {
+      const token = await user.getIdToken();
       const res = await axios.post(
-        'http://localhost:5000/applications/apply',
-        { projectId: applyModal._id, note: applyNote },
-        { headers: { 'x-firebase-uid': user.uid } }
+        'http://localhost:5000/api/applications/apply',
+        { projectId: applyModal._id, message: applyNote }, // 'message' aligns with our DB model
+        { headers: { "Authorization": `Bearer ${token}` } }
       );
       setApplications((prev) => [res.data, ...prev]);
       setApplyModal(null);
@@ -224,6 +229,7 @@ function StudentDashboard() {
       alert('Application submitted successfully!');
     } catch (err) {
       alert('Failed to submit application.');
+      console.error(err);
     }
   };
 

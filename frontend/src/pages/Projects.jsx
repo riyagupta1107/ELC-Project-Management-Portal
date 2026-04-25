@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Link } from 'react-router-dom';
 import axios from 'axios';
 import { auth } from '../firebase';
@@ -37,8 +38,6 @@ function Projects() {
 
   // --- 1. FETCH ALL PROJECTS ---
   useEffect(() => {
-    
-
 // ... inside your component
 // --- 1. FETCH PROJECTS FROM DB ---
   const fetchProjects = async () => {
@@ -55,7 +54,6 @@ function Projects() {
     } catch (error) {
       console.error("Error fetching projects:", error);
     } finally {
-      // FIX: Tell the UI to stop loading!
       setLoading(false); 
     }
   };
@@ -170,7 +168,6 @@ function Projects() {
     </div>
   )
 }
-
 // --- SUB COMPONENTS ---
 
 function NavLink({ to, children, active }) {
@@ -190,6 +187,7 @@ function ProjectCard({ project }) {
     }
   
     const isCompleted = project.status === "Completed";
+    const navigate = useNavigate();
   
     return (
       <div className="bg-white rounded-xl shadow-sm hover:shadow-md border border-gray-100 p-6 flex flex-col justify-between h-64 transition-transform duration-200 hover:-translate-y-1">
@@ -225,7 +223,7 @@ function ProjectCard({ project }) {
                 {project.professorName || "Unknown Faculty"}
               </span>
            </div>
-          <span className="text-sm font-medium text-brickRed cursor-pointer hover:underline self-end mb-1">View Details &rarr;</span>
+          <span className="text-sm font-medium text-brickRed cursor-pointer hover:underline self-end mb-1" onClick={() => navigate(`/project-details/${project._id}`)}>View Details &rarr;</span>
         </div>
       </div>
     );
