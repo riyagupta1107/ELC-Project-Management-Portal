@@ -101,4 +101,26 @@ export const updateApplicationStatus = async(req,res) => {
         console.error("Update App Status Error:", error);
         res.status(500).json({ message: "Server Error updating application." });
     }
-}
+};
+
+// Withdraw (Delete) an application
+export const withdrawApplication = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const studentUid = req.user.firebaseUid || req.user.uid;
+
+        const application = await Application.findById(id);
+        if (!application) return res.status(404).json({ message: "Application not found" });
+
+        // Security check: Only the student who applied can withdraw it
+        if (application.studentUid !== studentUid) {
+            return res.status(403).json({ message: "Unauthorized to withdraw this application" });
+        }
+
+        await Application.findByIdAndDelete(id);
+        res.status(200).json({ message: "Application withdrawn successfully" });
+    } catch (error) {
+        console.error("Withdraw Error:", error);
+        res.status(500).json({ message: "Server Error withdrawing application." });
+    }
+};

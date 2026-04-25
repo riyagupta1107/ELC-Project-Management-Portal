@@ -66,6 +66,7 @@ function Register() {
           role: formData.role, 
           firstName: formData.firstName,
           lastName: formData.lastName,
+          phone: formData.phone,
         });
 
         await signOut(auth);

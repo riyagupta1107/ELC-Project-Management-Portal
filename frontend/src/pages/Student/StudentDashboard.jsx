@@ -102,7 +102,7 @@ function BrowseProjectCard({ project, onApply, alreadyApplied }) {
   );
 }
 
-function ApplicationCard({ application }) {
+function ApplicationCard({ application , handleWithdraw}) {
   const s = STATUS_COLORS[application.status] || STATUS_COLORS['Pending'];
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 flex items-start gap-4">
@@ -115,6 +115,14 @@ function ApplicationCard({ application }) {
             day: 'numeric', month: 'short', year: 'numeric',
           })}
         </p>
+        {application.status === "Pending" && (
+        <button 
+          onClick={() => handleWithdraw(application._id)}
+          className="mt-3 w-full sm:w-auto bg-red-50 hover:bg-red-100 text-red-600 font-semibold py-2 px-4 rounded-lg text-sm border border-red-200 transition-colors"
+        >
+          Withdraw Application
+        </button>
+      )}
       </div>
       <span className={`px-3 py-1 rounded-full text-xs font-semibold flex-shrink-0 ${s.bg} ${s.text}`}>
         {application.status}
@@ -172,7 +180,7 @@ function StudentDashboard() {
       const res = await axios.get('http://localhost:5000/api/projects/all-projects', {
         headers: { "Authorization": `Bearer ${token}` }
       });
-      setAllProjects(res.data);
+      setAllProjects(response.data.projects);
     } catch (err) {
       console.error('Error fetching projects:', err);
     }
@@ -233,6 +241,24 @@ function StudentDashboard() {
     }
   };
 
+  const handleWithdraw = async (applicationId) => {
+    if (!window.confirm("Are you sure you want to withdraw this application?")) return;
+
+    try {
+      const token = await auth.currentUser.getIdToken();
+      await axios.delete(`http://localhost:5000/api/applications/${applicationId}`, {
+        headers: { "Authorization": `Bearer ${token}` }
+      });
+
+      // Instantly remove it from the UI
+      setApplications(prev => prev.filter(app => app._id !== applicationId));
+      alert("Application withdrawn.");
+    } catch (error) {
+      console.error("Error withdrawing application:", error);
+      alert("Failed to withdraw application.");
+    }
+  };
+
   // --- DERIVED STATE ---
   const appliedProjectIds = new Set(applications.map((a) => a.projectId));
   const allDomains = ['All', ...new Set(allProjects.flatMap((p) => p.domain || []))];
@@ -267,7 +293,7 @@ function StudentDashboard() {
               <NavLink to="/student-dashboard" active>Dashboard</NavLink>
               <NavLink to="/projects">All Projects</NavLink>
               <NavLink to="/profile">Profile</NavLink>
-              <NavLink to="/student-dashboard">Faculties</NavLink>
+              <NavLink to="/faculties">Faculties</NavLink>
             </div>
           </div>
         </div>
@@ -305,7 +331,6 @@ function StudentDashboard() {
         {/* TABS */}
         <div className="flex gap-1 mb-8 bg-gray-100 p-1 rounded-xl w-fit">
           {[
-            { key: 'browse',       label: `Browse Projects` },
             { key: 'applications', label: `My Applications (${applications.length})` },
             { key: 'enrolled',     label: `Enrolled (${enrolledProjects.length})` },
           ].map((tab) => (
@@ -328,7 +353,7 @@ function StudentDashboard() {
           <div className="text-center py-20 text-gray-500">Loading your dashboard...</div>
         ) : (
           <>
-            {/* ── BROWSE TAB ── */}
+            {/* ── BROWSE TAB ──
             {activeTab === 'browse' && (
               <section>
                 <div className="flex flex-col sm:flex-row gap-3 mb-6">
@@ -369,7 +394,7 @@ function StudentDashboard() {
                   </div>
                 )}
               </section>
-            )}
+            )} */}
 
             {/* ── APPLICATIONS TAB ── */}
             {activeTab === 'applications' && (
@@ -380,7 +405,11 @@ function StudentDashboard() {
                 ) : (
                   <div className="flex flex-col gap-3 max-w-3xl">
                     {applications.map((app) => (
-                      <ApplicationCard key={app._id} application={app} />
+                      <ApplicationCard 
+                        key={app._id} 
+                        application={app} 
+                        handleWithdraw={handleWithdraw} // <-- MUST PASS THIS PROP!
+                      />
                     ))}
                   </div>
                 )}
