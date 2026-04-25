@@ -23,7 +23,6 @@ export const createUser = async (req, res) => {
         if (user) {
             return res.status(200).json({ message: "User already exists", user });
         }
-
         // If user doesn't exist, create a new one with the uppercase role
         user = await User.create({
             firebaseUid, 
