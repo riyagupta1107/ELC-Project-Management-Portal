@@ -3,10 +3,12 @@ import {
     applyForProject, 
     getStudentApplications, 
     getProjectApplications,      
-    updateApplicationStatus      
+    updateApplicationStatus,
+    withdrawApplication 
 } from "../controllers/applicationController.js";
 import { requireUser } from "../middleware/authMiddleware.js";
 import { requireRole } from "../middleware/requireRole.js";
+
 
 const router = express.Router();
 
@@ -15,5 +17,6 @@ router.get("/my-applications", requireUser, getStudentApplications);
 
 router.get("/project/:projectId", requireUser, requireRole("FACULTY"), getProjectApplications);
 router.put("/:applicationId/status", requireUser, requireRole("FACULTY"), updateApplicationStatus);
+router.delete("/:id", requireUser, withdrawApplication);
 
 export default router;
