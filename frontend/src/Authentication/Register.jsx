@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
+import { createUserWithEmailAndPassword, updateProfile , signOut} from 'firebase/auth';
 import { auth } from '../firebase.js';
 import axios from 'axios';
 
@@ -60,13 +60,15 @@ function Register() {
         });
 
         // 3. Sync with MongoDB Backend (Essential for your app logic)
-        await axios.post("http://localhost:5000/users/create", {
+        await axios.post("http://localhost:5000/api/users/create", {
           firebaseUid: user.uid,
           email: user.email,
           role: formData.role, 
           firstName: formData.firstName,
           lastName: formData.lastName,
         });
+
+        await signOut(auth);
 
         alert("Registration successful!");
         (formData.role == 'STUDENT') ? navigate('/student-dashboard') : navigate('/faculty-dashboard');
