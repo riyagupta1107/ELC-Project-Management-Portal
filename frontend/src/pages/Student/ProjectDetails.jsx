@@ -14,6 +14,8 @@ function ProjectDetails() {
       resumeLink: ''
     });
     const [submitting, setSubmitting] = useState(false);
+    const [applications, setApplications] = useState([]);
+    const [alreadyApplied, setAlreadyApplied] = useState(false);
     const navigate = useNavigate();
 
     const toggleModal = () => {
@@ -71,13 +73,32 @@ function ProjectDetails() {
             } catch(err) {
                 console.error("Error fetching project details: ", err);
                 setError("Could not load project details.");
+            }
+        };
+
+        const fetchApplications = async() => {
+            try {
+                const token = await auth.currentUser.getIdToken();
+                const res = await axios.get('http://localhost:5000/api/applications/my-applications', {
+                    headers: {
+                        "Authorization" : `Bearer ${token}`
+                    }
+                });
+                setApplications(res.data);
+                // Check if user has already applied to this project
+                const hasApplied = res.data.some(app => app.projectId === id);
+                setAlreadyApplied(hasApplied);
+            } catch(err) {
+                console.error("Error fetching applications: ", err);
             } finally {
                 setLoading(false);
             }
         };
+
         const unsubscribe = auth.onAuthStateChanged((user) => {
             if (user) {
               fetchProjectDetails();
+              fetchApplications();
             } else {
               setLoading(false);
               setError("You must be logged in to view this.");
@@ -191,10 +212,18 @@ function ProjectDetails() {
                   {/* Action Area (Apply button for students) */}
                   {project.status !== "Completed" && (
                     <div className="pt-4">
-                       <button className="w-full bg-brickRed hover:bg-red-800 text-white font-bold py-3 px-4 rounded-lg transition-colors shadow-sm" onClick={toggleModal}>
-                         Apply for Project
-                       </button>
-                       <p className="text-xs text-center text-gray-400 mt-2">Subject to faculty approval</p>
+                       {alreadyApplied ? (
+                         <div className="text-center py-3">
+                           <span className="text-xs font-semibold text-gray-400 italic">Already Applied</span>
+                         </div>
+                       ) : (
+                         <>
+                           <button className="w-full bg-brickRed hover:bg-red-800 text-white font-bold py-3 px-4 rounded-lg transition-colors shadow-sm" onClick={toggleModal}>
+                             Apply for Project
+                           </button>
+                           <p className="text-xs text-center text-gray-400 mt-2">Subject to faculty approval</p>
+                         </>
+                       )}
                     </div>
                   )}
                 </div>

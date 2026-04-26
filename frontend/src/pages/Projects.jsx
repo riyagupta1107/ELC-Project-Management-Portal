@@ -38,28 +38,28 @@ function Projects() {
 
   // --- 1. FETCH ALL PROJECTS ---
   useEffect(() => {
-// ... inside your component
-// --- 1. FETCH PROJECTS FROM DB ---
-  const fetchProjects = async () => {
-    try {
-      const token = await auth.currentUser.getIdToken();
+    const fetchProjects = async () => {
+      try {
+        const token = await auth.currentUser.getIdToken();
 
-      const response = await axios.get("http://localhost:5000/api/projects/all-projects", {
-        headers: {
-          "Authorization": `Bearer ${token}`
-        }
-      });
+        const response = await axios.get("http://localhost:5000/api/projects/all-projects", {
+          headers: {
+            "Authorization": `Bearer ${token}`
+          }
+        });
 
-      setProjects(response.data); 
-    } catch (error) {
-      console.error("Error fetching projects:", error);
-    } finally {
-      setLoading(false); 
-    }
-  };
+        setProjects(response.data); 
+      } catch (error) {
+        console.error("Error fetching projects:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
 
     const unsubscribe = auth.onAuthStateChanged((user) => {
-        if (user) fetchProjects();
+        if (user) {
+          fetchProjects();
+        }
     });
 
     return () => unsubscribe();
@@ -223,7 +223,7 @@ function ProjectCard({ project }) {
                 {project.professorName || "Unknown Faculty"}
               </span>
            </div>
-          <span className="text-sm font-medium text-brickRed cursor-pointer hover:underline self-end mb-1" onClick={() => navigate(`/project-details/${project._id}`)}>View Details &rarr;</span>
+          <span className="text-sm font-medium text-brickRed cursor-pointer hover:underline self-end" onClick={() => navigate(`/project-details/${project._id}`)}>View Details →</span>
         </div>
       </div>
     );
