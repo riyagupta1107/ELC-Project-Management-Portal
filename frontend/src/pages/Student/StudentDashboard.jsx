@@ -267,7 +267,6 @@ function StudentDashboard() {
               <NavLink to="/student-dashboard" active>Dashboard</NavLink>
               <NavLink to="/projects">All Projects</NavLink>
               <NavLink to="/profile">Profile</NavLink>
-              <NavLink to="/student-dashboard">Faculties</NavLink>
             </div>
           </div>
         </div>
