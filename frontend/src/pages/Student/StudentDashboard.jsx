@@ -1,23 +1,13 @@
-// import React from 'react'
-// import StudentNavBar from './StudentNavBar'
-
-// function StudentDashboard() {
-//   return (
-//     <div className='flex'>
-//       <StudentNavBar />
-//       <div></div>
-//     </div>
-//   )
-// }
-
-// export default StudentDashboard
-
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { auth } from '../../firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 import axios from 'axios';
 import logo from '../../assets/thapar-logo.jpg';
+import { FaBell } from 'react-icons/fa'; 
+import axiosInstance from '../../api/axiosInstance';
+import { useSocket } from '../../context/SocketContext';
+import toast from 'react-hot-toast';
 
 // --- CONSTANTS ---
 const STATUS_COLORS = {
@@ -46,9 +36,7 @@ function NavLink({ to, children, active }) {
     <Link
       to={to}
       className={`inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium h-full transition ${
-        active
-          ? 'border-brickRed text-brickRed'
-          : 'border-transparent text-gray-500 hover:text-gray-700'
+        active ? 'border-brickRed text-brickRed' : 'border-transparent text-gray-500 hover:text-gray-700'
       }`}
     >
       {children}
@@ -65,44 +53,7 @@ function StatCard({ label, value, accent }) {
   );
 }
 
-function BrowseProjectCard({ project, onApply, alreadyApplied }) {
-  return (
-    <div className="bg-white rounded-xl shadow-sm hover:shadow-md border border-gray-100 p-6 flex flex-col justify-between h-72 transition-transform duration-200 hover:-translate-y-1">
-      <div>
-        <div className="flex justify-between items-start mb-3 flex-wrap gap-2">
-          <span className="px-3 py-1 rounded-full text-xs font-semibold bg-red-50 text-brickRed">
-            {project.status}
-          </span>
-          <div className="flex flex-wrap gap-1 justify-end max-w-[55%]">
-            {project.domain?.map((d, i) => (
-              <span key={i} className={`px-2 py-1 rounded text-xs font-medium border ${DOMAIN_COLORS(d)}`}>{d}</span>
-            ))}
-          </div>
-        </div>
-        <h4 className="text-lg font-bold text-gray-800 mb-1 line-clamp-2">{project.title}</h4>
-        <p className="text-gray-500 text-xs mb-1 font-medium">Prof. {project.professorName || 'Faculty'}</p>
-        <p className="text-gray-600 text-sm line-clamp-2">{project.description}</p>
-      </div>
-      <div className="mt-4 pt-4 border-t border-gray-100 flex items-center justify-between">
-        <span className="text-xs font-bold text-gray-500">
-          {project.students} seat{project.students !== 1 ? 's' : ''} available
-        </span>
-        {alreadyApplied ? (
-          <span className="text-xs font-semibold text-gray-400 italic">Applied ✓</span>
-        ) : (
-          <button
-            onClick={() => onApply(project)}
-            className="text-sm font-semibold text-white bg-brickRed hover:bg-red-800 px-4 py-1.5 rounded-lg transition"
-          >
-            Apply →
-          </button>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function ApplicationCard({ application }) {
+function ApplicationCard({ application, handleWithdraw }) {
   const s = STATUS_COLORS[application.status] || STATUS_COLORS['Pending'];
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 flex items-start gap-4">
@@ -115,6 +66,14 @@ function ApplicationCard({ application }) {
             day: 'numeric', month: 'short', year: 'numeric',
           })}
         </p>
+        {application.status === "Pending" && (
+          <button 
+            onClick={() => handleWithdraw(application._id)}
+            className="mt-3 bg-red-50 hover:bg-red-100 text-red-600 font-semibold py-1.5 px-4 rounded-lg text-xs border border-red-200 transition-colors"
+          >
+            Withdraw Application
+          </button>
+        )}
       </div>
       <span className={`px-3 py-1 rounded-full text-xs font-semibold flex-shrink-0 ${s.bg} ${s.text}`}>
         {application.status}
@@ -124,6 +83,7 @@ function ApplicationCard({ application }) {
 }
 
 function EnrolledCard({ project }) {
+  const navigate = useNavigate();
   return (
     <div className="bg-white rounded-xl shadow-sm hover:shadow-md border border-gray-100 p-6 flex flex-col justify-between h-60 transition-transform duration-200 hover:-translate-y-1">
       <div>
@@ -141,7 +101,12 @@ function EnrolledCard({ project }) {
             <span key={i} className={`px-2 py-0.5 rounded text-xs font-medium border ${DOMAIN_COLORS(d)}`}>{d}</span>
           ))}
         </div>
-        <span className="text-sm font-medium text-brickRed cursor-pointer hover:underline">View Details →</span>
+        <span 
+          onClick={() => navigate(`/project-details/${project._id}`)} 
+          className="text-sm font-medium text-brickRed cursor-pointer hover:underline"
+        >
+          View Details →
+        </span>
       </div>
     </div>
   );
@@ -151,55 +116,55 @@ function EnrolledCard({ project }) {
 // MAIN COMPONENT
 // =====================================================================
 function StudentDashboard() {
-  const [name, setName]                 = useState('');
-  const [greeting, setGreeting]         = useState('');
-  const [loading, setLoading]           = useState(true);
+  const navigate = useNavigate();
+  const socket = useSocket();
+  const [name, setName] = useState('');
+  const [greeting, setGreeting] = useState('');
+  const [loading, setLoading] = useState(true);
 
-  const [allProjects, setAllProjects]   = useState([]);
+  const [allProjects, setAllProjects] = useState([]);
   const [applications, setApplications] = useState([]);
   const [enrolledProjects, setEnrolled] = useState([]);
 
-  const [activeTab, setActiveTab]       = useState('browse');
-  const [applyModal, setApplyModal]     = useState(null);
-  const [applyNote, setApplyNote]       = useState('');
-  const [domainFilter, setDomainFilter] = useState('All');
-  const [searchQuery, setSearchQuery]   = useState('');
+  const [activeTab, setActiveTab] = useState('applications');
+  
+  // Notification State
+  const [notifications, setNotifications] = useState([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [isNotificationDropdownOpen, setIsNotificationDropdownOpen] = useState(false);
+
+  const toggleNotificationDropdown = () => setIsNotificationDropdownOpen(!isNotificationDropdownOpen);
 
   // --- DATA FETCHING ---
-  const fetchAllProjects = async () => {
-    try {
-      const token = await auth.currentUser.getIdToken();
-      const res = await axios.get('http://localhost:5000/api/projects/all-projects', {
-        headers: { "Authorization": `Bearer ${token}` }
-      });
-      setAllProjects(res.data);
-    } catch (err) {
-      console.error('Error fetching projects:', err);
-    }
-  };
-
-  const fetchApplications = async (user) => {
+  const fetchData = async (user) => {
     try {
       const token = await user.getIdToken();
-      const res = await axios.get('http://localhost:5000/api/applications/my-applications', {
-        headers: { "Authorization": `Bearer ${token}` },
-      });
-      setApplications(res.data);
-      setEnrolled(res.data.filter((a) => a.status === 'Accepted'));
+      const headers = { "Authorization": `Bearer ${token}` };
+
+      const [projectsRes, appsRes, notifRes] = await Promise.all([
+        axios.get('http://localhost:5000/api/projects/all-projects', { headers }),
+        axios.get('http://localhost:5000/api/applications/my-applications', { headers }),
+        axiosInstance.get('/notifications')
+      ]);
+
+      setAllProjects(projectsRes.data.projects || []);
+      setApplications(appsRes.data || []);
+      setEnrolled(appsRes.data.filter((a) => a.status === 'Accepted') || []);
+      setNotifications(notifRes.data || []);
+      setUnreadCount(notifRes.data.filter(n => !n.isRead).length);
     } catch (err) {
-      console.error('Error fetching applications:', err);
+      console.error('Error fetching dashboard data:', err);
+    } finally {
+      setLoading(false);
     }
   };
 
-  // --- AUTH & INITIAL LOAD ---
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       if (user) {
         const firstName = user.displayName ? user.displayName.split(' ')[0] : 'Student';
         setName(firstName);
-        Promise.all([fetchAllProjects(), fetchApplications(user)]).finally(() =>
-          setLoading(false)
-        );
+        fetchData(user);
       }
     });
 
@@ -211,47 +176,52 @@ function StudentDashboard() {
     return () => unsubscribe();
   }, []);
 
-  // --- APPLY HANDLER ---
-  const handleApply = async (e) => {
-    e.preventDefault();
-    const user = auth.currentUser;
-    if (!user || !applyModal) return;
+  // --- REAL-TIME NOTIFICATIONS ---
+  useEffect(() => {
+    if (socket) {
+      const handleNewNotification = (notification) => {
+        setNotifications(prev => [notification, ...prev]);
+        setUnreadCount(prev => prev + 1);
+      };
+      socket.on("newNotification", handleNewNotification);
+      return () => socket.off("newNotification", handleNewNotification);
+    }
+  }, [socket]);
+
+  const handleNotificationClick = async (notif) => {
     try {
-      const token = await user.getIdToken();
-      const res = await axios.post(
-        'http://localhost:5000/api/applications/apply',
-        { projectId: applyModal._id, message: applyNote }, // 'message' aligns with our DB model
-        { headers: { "Authorization": `Bearer ${token}` } }
-      );
-      setApplications((prev) => [res.data, ...prev]);
-      setApplyModal(null);
-      setApplyNote('');
-      alert('Application submitted successfully!');
+      if (!notif.isRead) {
+        await axiosInstance.put(`/notifications/${notif._id}/read`);
+        setNotifications(prev => prev.map(n => n._id === notif._id ? { ...n, isRead: true } : n));
+        setUnreadCount(prev => Math.max(0, prev - 1));
+      }
+      if (notif.link) navigate(notif.link);
+      setIsNotificationDropdownOpen(false);
     } catch (err) {
-      alert('Failed to submit application.');
-      console.error(err);
+      console.error("Error marking notification as read", err);
     }
   };
 
-  // --- DERIVED STATE ---
-  const appliedProjectIds = new Set(applications.map((a) => a.projectId));
-  const allDomains = ['All', ...new Set(allProjects.flatMap((p) => p.domain || []))];
-  const filteredProjects = allProjects
-    .filter((p) => p.status === 'Ongoing')
-    .filter((p) => domainFilter === 'All' || p.domain?.includes(domainFilter))
-    .filter((p) =>
-      !searchQuery ||
-      p.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      p.description?.toLowerCase().includes(searchQuery.toLowerCase())
-    );
+  const handleWithdraw = async (applicationId) => {
+    if (!window.confirm("Are you sure you want to withdraw this application?")) return;
+    try {
+      const token = await auth.currentUser.getIdToken();
+      await axios.delete(`http://localhost:5000/api/applications/${applicationId}`, {
+        headers: { "Authorization": `Bearer ${token}` }
+      });
+      setApplications(prev => prev.filter(app => app._id !== applicationId));
+      toast.success("Application withdrawn.");
+    } catch (error) {
+      console.error("Error withdrawing application:", error);
+      toast.error("Failed to withdraw application.");
+    }
+  };
 
-  const pendingCount  = applications.filter((a) => a.status === 'Pending').length;
+  const pendingCount = applications.filter((a) => a.status === 'Pending').length;
   const acceptedCount = applications.filter((a) => a.status === 'Accepted').length;
 
-  // =====================================================================
   return (
     <div className="min-h-screen bg-offWhite font-sans text-gray-800 relative">
-
       {/* NAVBAR */}
       <nav className="bg-white shadow-sm sticky top-0 z-40 border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -263,61 +233,72 @@ function StudentDashboard() {
                 <p className="text-xs text-gray-500 tracking-wider">STUDENT DASHBOARD</p>
               </div>
             </div>
-            <div className="hidden md:flex space-x-8">
+            <div className="hidden md:flex space-x-8 items-center">
               <NavLink to="/student-dashboard" active>Dashboard</NavLink>
-              <NavLink to="/projects">All Projects</NavLink>
+              <NavLink to="/projects">Projects</NavLink>
               <NavLink to="/profile">Profile</NavLink>
-              <NavLink to="/student-dashboard">Faculties</NavLink>
+              
+              {/* Notification Bell */}
+              <div className="relative">
+                <button onClick={toggleNotificationDropdown} className="relative text-gray-500 hover:text-gray-700 focus:outline-none">
+                  <FaBell className="w-6 h-6" />
+                  {unreadCount > 0 && (
+                    <span className="absolute top-1 right-1 bg-red-500 h-2.5 w-2.5 rounded-full border-2 border-white"></span>
+                  )}
+                </button>
+                {isNotificationDropdownOpen && (
+                  <div className="absolute right-0 mt-2 w-80 bg-white border border-gray-200 rounded-lg shadow-xl z-50 overflow-hidden">
+                    <div className="p-4 bg-gray-50 border-b border-gray-200 flex justify-between items-center">
+                      <h4 className="text-sm font-bold text-gray-700">Notifications</h4>
+                      <span className="text-xs text-brickRed font-semibold">{unreadCount} New</span>
+                    </div>
+                    <ul className="divide-y divide-gray-200 max-h-72 overflow-y-auto">
+                      {notifications.length === 0 ? (
+                        <li className="p-6 text-sm text-gray-500 text-center italic">No notifications yet.</li>
+                      ) : (
+                        notifications.map(notif => (
+                          <li key={notif._id} onClick={() => handleNotificationClick(notif)} className={`p-4 text-sm cursor-pointer transition-colors ${notif.isRead ? 'bg-white hover:bg-gray-50' : 'bg-red-50 hover:bg-red-100'}`}>
+                            <div className={`mb-1 ${notif.isRead ? 'font-semibold text-gray-700' : 'font-bold text-brickRed'}`}>{notif.title}</div>
+                            <div className="text-gray-600 line-clamp-2">{notif.message}</div>
+                            <div className="text-xs text-gray-400 mt-2">{new Date(notif.createdAt).toLocaleDateString()}</div>
+                          </li>
+                        ))
+                      )}
+                    </ul>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>
       </nav>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
-
         {/* HEADER */}
-        <div className="flex flex-col md:flex-row md:items-end justify-between mb-8 gap-4 md:p-0 p-4">
-          <div>
-            <h2 className="text-3xl font-light text-gray-500">{greeting},</h2>
-            <h1 className="text-5xl font-bold text-brickRed mt-1">{name}.</h1>
-            <p className="mt-2 text-gray-600">
-              You have{' '}
-              <span className="font-bold text-brickRed">
-                {pendingCount} pending application{pendingCount !== 1 ? 's' : ''}
-              </span>
-              {acceptedCount > 0 && (
-                <> and <span className="font-bold text-green-600">{acceptedCount} accepted</span></>
-              )}.
-            </p>
-          </div>
+        <div className="mb-8">
+          <h2 className="text-3xl font-light text-gray-500">{greeting},</h2>
+          <h1 className="text-5xl font-bold text-brickRed mt-1">{name}.</h1>
+          <p className="mt-2 text-gray-600">
+            You have <span className="font-bold text-brickRed">{pendingCount} pending applications</span>
+            {acceptedCount > 0 && <> and <span className="font-bold text-green-600">{acceptedCount} accepted</span></>}.
+          </p>
         </div>
 
         {/* STAT CARDS */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
           <StatCard label="Projects Available" value={allProjects.filter(p => p.status === 'Ongoing').length} />
-          <StatCard label="Applications Sent"  value={applications.length} />
-          <StatCard label="Pending"            value={pendingCount}  accent="#d97706" />
-          <StatCard label="Enrolled Projects"  value={enrolledProjects.length} accent="#16a34a" />
+          <StatCard label="Applications Sent" value={applications.length} />
+          <StatCard label="Pending" value={pendingCount} accent="#d97706" />
+          <StatCard label="Enrolled Projects" value={enrolledProjects.length} accent="#16a34a" />
         </div>
 
         <hr className="border-gray-200 mb-8" />
 
         {/* TABS */}
         <div className="flex gap-1 mb-8 bg-gray-100 p-1 rounded-xl w-fit">
-          {[
-            { key: 'browse',       label: `Browse Projects` },
-            { key: 'applications', label: `My Applications (${applications.length})` },
-            { key: 'enrolled',     label: `Enrolled (${enrolledProjects.length})` },
-          ].map((tab) => (
-            <button
-              key={tab.key}
-              onClick={() => setActiveTab(tab.key)}
-              className={`px-5 py-2 rounded-lg text-sm font-semibold transition ${
-                activeTab === tab.key
-                  ? 'bg-white shadow text-brickRed'
-                  : 'text-gray-500 hover:text-gray-700'
-              }`}
-            >
+          {[{ key: 'applications', label: `My Applications (${applications.length})` },
+            { key: 'enrolled', label: `Enrolled (${enrolledProjects.length})` }].map((tab) => (
+            <button key={tab.key} onClick={() => setActiveTab(tab.key)} className={`px-5 py-2 rounded-lg text-sm font-semibold transition ${activeTab === tab.key ? 'bg-white shadow text-brickRed' : 'text-gray-500 hover:text-gray-700'}`}>
               {tab.label}
             </button>
           ))}
@@ -325,150 +306,33 @@ function StudentDashboard() {
 
         {/* CONTENT */}
         {loading ? (
-          <div className="text-center py-20 text-gray-500">Loading your dashboard...</div>
+          <div className="text-center py-20 text-gray-500 font-medium animate-pulse">Loading dashboard...</div>
         ) : (
           <>
-            {/* ── BROWSE TAB ── */}
-            {activeTab === 'browse' && (
-              <section>
-                <div className="flex flex-col sm:flex-row gap-3 mb-6">
-                  <input
-                    type="text"
-                    placeholder="Search projects..."
-                    className="flex-1 rounded-lg border border-gray-200 px-4 py-2 text-sm shadow-sm focus:outline-none focus:border-brickRed"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                  />
-                  <select
-                    className="rounded-lg border border-gray-200 px-4 py-2 text-sm shadow-sm bg-white focus:outline-none focus:border-brickRed"
-                    value={domainFilter}
-                    onChange={(e) => setDomainFilter(e.target.value)}
-                  >
-                    {allDomains.map((d) => (
-                      <option key={d} value={d}>{d}</option>
-                    ))}
-                  </select>
-                </div>
-
-                <p className="text-sm text-gray-500 mb-4">
-                  Showing <span className="font-semibold text-gray-800">{filteredProjects.length}</span> open project{filteredProjects.length !== 1 ? 's' : ''}
-                </p>
-
-                {filteredProjects.length === 0 ? (
-                  <p className="text-gray-500 italic">No projects match your filters.</p>
-                ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {filteredProjects.map((project) => (
-                      <BrowseProjectCard
-                        key={project._id}
-                        project={project}
-                        onApply={(p) => { setApplyModal(p); setApplyNote(''); }}
-                        alreadyApplied={appliedProjectIds.has(project._id)}
-                      />
-                    ))}
-                  </div>
-                )}
-              </section>
-            )}
-
-            {/* ── APPLICATIONS TAB ── */}
             {activeTab === 'applications' && (
-              <section>
-                <h3 className="text-2xl font-bold text-gray-800 mb-6">My Applications</h3>
-                {applications.length === 0 ? (
-                  <p className="text-gray-500 italic">You haven't applied to any projects yet.</p>
-                ) : (
-                  <div className="flex flex-col gap-3 max-w-3xl">
-                    {applications.map((app) => (
-                      <ApplicationCard key={app._id} application={app} />
-                    ))}
-                  </div>
-                )}
+              <section className="flex flex-col gap-3 max-w-3xl">
+                <h3 className="text-2xl font-bold text-gray-800 mb-3">My Applications</h3>
+                {applications.length === 0 ? <p className="text-gray-500 italic">No applications sent yet.</p> :
+                  applications.map(app => <ApplicationCard key={app._id} application={app} handleWithdraw={handleWithdraw} />)}
               </section>
             )}
 
-            {/* ── ENROLLED TAB ── */}
             {activeTab === 'enrolled' && (
               <section>
                 <h3 className="text-2xl font-bold text-gray-800 flex items-center gap-2 mb-6">
-                  <span className="w-3 h-3 rounded-full bg-green-500 animate-pulse" />
-                  My Enrolled Projects
+                  <span className="w-3 h-3 rounded-full bg-green-500 animate-pulse" /> Enrolled Projects
                 </h3>
-                {enrolledProjects.length === 0 ? (
-                  <p className="text-gray-500 italic">
-                    You're not enrolled in any projects yet. Apply and get accepted first!
-                  </p>
-                ) : (
+                {enrolledProjects.length === 0 ? <p className="text-gray-500 italic">Not enrolled in any projects yet.</p> :
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {enrolledProjects.map((app) => (
-                      <EnrolledCard
-                        key={app._id}
-                        project={{
-                          _id: app.projectId,
-                          title: app.projectTitle,
-                          description: app.projectDescription,
-                          domain: app.projectDomain,
-                          professorName: app.professorName,
-                          createdAt: app.appliedAt,
-                        }}
-                      />
+                    {enrolledProjects.map(app => (
+                      <EnrolledCard key={app._id} project={{ _id: app.projectId, title: app.projectTitle, description: app.projectDescription, domain: app.projectDomain, professorName: app.professorName, createdAt: app.appliedAt }} />
                     ))}
-                  </div>
-                )}
+                  </div>}
               </section>
             )}
           </>
         )}
       </main>
-
-      {/* ── APPLY MODAL ── */}
-      {applyModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-md p-6 relative">
-            <button
-              onClick={() => setApplyModal(null)}
-              className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"
-            >
-              ✕
-            </button>
-
-            <h2 className="text-2xl font-bold text-gray-800 mb-1">Apply for Project</h2>
-            <p className="text-sm text-gray-500 mb-4">{applyModal.title}</p>
-
-            <div className="mb-4 bg-gray-50 rounded-lg p-3">
-              <p className="text-xs text-gray-500 font-medium mb-1">About this project</p>
-              <p className="text-sm text-gray-700 line-clamp-3">{applyModal.description}</p>
-              <div className="flex flex-wrap gap-1 mt-2">
-                {applyModal.domain?.map((d, i) => (
-                  <span key={i} className={`px-2 py-0.5 rounded text-xs font-medium border ${DOMAIN_COLORS(d)}`}>{d}</span>
-                ))}
-              </div>
-            </div>
-
-            <form onSubmit={handleApply} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Cover Note <span className="text-gray-400 font-normal">(optional)</span>
-                </label>
-                <textarea
-                  rows="4"
-                  placeholder="Tell the professor why you're a great fit for this project..."
-                  className="block w-full rounded-md border border-gray-300 shadow-sm p-2 text-sm focus:border-brickRed focus:ring-brickRed focus:outline-none"
-                  value={applyNote}
-                  onChange={(e) => setApplyNote(e.target.value)}
-                />
-              </div>
-              <button
-                type="submit"
-                className="w-full bg-brickRed text-white py-2 rounded-lg font-bold hover:bg-red-800 transition"
-              >
-                Submit Application
-              </button>
-            </form>
-          </div>
-        </div>
-      )}
-
     </div>
   );
 }
