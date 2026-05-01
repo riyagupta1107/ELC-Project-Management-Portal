@@ -5,7 +5,10 @@ import { auth } from '../../firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 import axios from 'axios';
 import logo from '../../assets/thapar-logo.jpg';
-
+import { FaBell } from 'react-icons/fa'; 
+import axiosInstance from '../../api/axiosInstance';
+import { useSocket } from '../../context/SocketContext';
+import toast from 'react-hot-toast';
 
 // --- CONSTANTS ---
 const DOMAINS = [
@@ -27,49 +30,111 @@ const DOMAINS = [
 ];
 
 function ProfessorDashboard() {
+  const navigate = useNavigate();
+  // Call useSocket inside the component!
+  const socket = useSocket();
+
   const [name, setName] = useState('');
   const [greeting, setGreeting] = useState('');
   const [projects, setProjects] = useState([]); // Store Real Projects
   const [isModalOpen, setIsModalOpen] = useState(false); // Modal State
   const [loading, setLoading] = useState(true);
+  
+  // Notice & Notification State
+  const [notifications, setNotifications] = useState([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [isNoticeModalOpen, setIsNoticeModalOpen] = useState(false);
+  const [isNotificationDropdownOpen, setIsNotificationDropdownOpen] = useState(false);
+  const [noticeData, setNoticeData] = useState({ title: '', message: '' });
 
   // Form State for New Project
   const [newProject, setNewProject] = useState({
     title: '', domain: [], description: '', students: 0, status: 'Ongoing'
   });
 
-  // --- 1. FETCH PROJECTS FROM DB ---
-  // --- 1. FETCH PROJECTS FROM DB ---
-  const fetchProjects = async () => {
-    try {
-      const token = await auth.currentUser.getIdToken();
+  const toggleNotificationDropdown = () => {
+    setIsNotificationDropdownOpen(!isNotificationDropdownOpen);
+  };
 
+  // --- 1. FETCH PROJECTS FROM DB ---
+  const fetchProjects = async (user) => {
+    try {
+      const token = await user.getIdToken();
       const response = await axios.get("http://localhost:5000/api/projects/my-prof-projects", {
         headers: {
           "Authorization": `Bearer ${token}`
         }
       });
-
       setProjects(response.data); 
     } catch (error) {
       console.error("Error fetching projects:", error);
     } finally {
-      // FIX: Tell the UI to stop loading!
       setLoading(false); 
     }
   };
 
-  // --- 2. HANDLE AUTH & INITIAL LOAD ---
+  // --- 2. HANDLE NOTIFICATIONS ---
+  const handleNotificationClick = async (notif) => {
+    try {
+        if (!notif.isRead) {
+            await axiosInstance.put(`/notifications/${notif._id}/read`);
+            setNotifications(prev => 
+                prev.map(n => n._id === notif._id ? { ...n, isRead: true } : n)
+            );
+            setUnreadCount(prev => Math.max(0, prev - 1));
+        }
+        
+        if (notif.link) {
+            navigate(notif.link);
+        }
+        
+        setIsNotificationDropdownOpen(false); 
+    } catch (err) {
+        console.error("Error marking notification as read", err);
+    }
+  };
+
+  useEffect(() => {
+    // Fetch Historical Notifications
+    const fetchNotifications = async () => {
+        try {
+            const res = await axiosInstance.get('/notifications');
+            setNotifications(res.data);
+            setUnreadCount(res.data.filter(n => !n.isRead).length);
+        } catch (err) {
+            console.error("Failed to fetch notifications", err);
+        }
+    };
+
+    const user = auth.currentUser;
+    if (user) fetchNotifications();
+
+    // Listen for Live Updates
+    if (socket) {
+        const handleNewNotification = (notification) => {
+            setNotifications(prev => [notification, ...prev]);
+            setUnreadCount(prev => prev + 1);
+        };
+        socket.on("newNotification", handleNewNotification);
+
+        return () => {
+            socket.off("newNotification", handleNewNotification);
+        };
+      }
+  }, [socket]); 
+
+  // --- 3. HANDLE AUTH & INITIAL LOAD ---
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       if (user) {
         const firstName = user.displayName ? user.displayName.split(' ')[0] : 'Professor';
         setName(firstName);
-        fetchProjects(user); // Fetch data when user is confirmed
+        fetchProjects(user); 
+      } else {
+        setLoading(false);
       }
     });
     
-    // Greeting Logic
     const hour = new Date().getHours();
     if (hour < 12) setGreeting("Good Morning");
     else if (hour < 18) setGreeting("Good Afternoon");
@@ -78,54 +143,67 @@ function ProfessorDashboard() {
     return () => unsubscribe();
   }, []);
 
-  // --- 3. HANDLE DOMAIN SELECTION ---
+  // --- 4. HANDLE DOMAIN SELECTION ---
   const handleAddDomain = (e) => {
     const selectedDomain = e.target.value;
     if (selectedDomain && !newProject.domain.includes(selectedDomain)) {
       setNewProject({
         ...newProject,
-        domain: [...newProject.domain, selectedDomain] // Add to array
+        domain: [...newProject.domain, selectedDomain] 
       });
     }
-    // Reset the dropdown back to default
     e.target.value = "";
   };
 
   const removeDomain = (domainToRemove) => {
     setNewProject({
       ...newProject,
-      domain: newProject.domain.filter(d => d !== domainToRemove) // Remove from array
+      domain: newProject.domain.filter(d => d !== domainToRemove) 
     });
   };
 
-  // --- 4. HANDLE FORM SUBMIT ---
-  // --- 4. HANDLE FORM SUBMIT ---
+  // --- 5. HANDLE FORM SUBMITS ---
   const handleCreateProject = async (e) => {
     e.preventDefault();
     const user = auth.currentUser;
     if (!user) return;
 
     try {
-      // FIX 1: Get the secure token
       const token = await user.getIdToken();
-
-      // FIX 2: Add /api and use the Bearer token header
       const response = await axios.post("http://localhost:5000/api/projects/add", newProject, {
         headers: {
           "Authorization": `Bearer ${token}`
         },
       });
 
-      const createdProject = response.data;
-      setProjects([createdProject, ...projects]); 
+      setProjects([response.data, ...projects]); 
       setIsModalOpen(false); 
       setNewProject({ title: '', domain:[], description: '', students: 0, status: 'Ongoing' }); 
-      alert("Project Created Successfully!");
+      toast.success("Project Created Successfully!");
     } catch (error) {
       console.error(error);
-      alert("Failed to create project");
+      toast.error("Failed to create project");
     }
   };
+
+  const handlePostNotice = async (e) => {
+    e.preventDefault();
+    try {
+        const dataToSend = {
+            title: noticeData.title,
+            content: noticeData.message 
+        };
+        
+        await axiosInstance.post('/notices/add', dataToSend);
+        
+        toast.success("Notice posted successfully!");
+        setIsNoticeModalOpen(false); 
+        setNoticeData({ title: '', message: '' }); 
+    } catch (error) {
+        console.error("Failed to post notice:", error);
+        toast.error("Failed to post notice.");
+    }
+};
 
   // Filter projects for display
   const ongoingProjects = projects.filter(p => p.status === "Ongoing");
@@ -138,17 +216,64 @@ function ProfessorDashboard() {
       <nav className="bg-white shadow-sm sticky top-0 z-40 border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-20 items-center">
-             <div className="flex-shrink-0 flex items-center gap-3">
+            <div className="flex-shrink-0 flex items-center gap-3">
               <img className="h-20 w-auto" src={logo} alt="Thapar Logo" />
               <div className="hidden md:block">
                 <h1 className="text-xl font-bold text-brickRed tracking-wide">ELC PORTAL</h1>
                 <p className="text-xs text-gray-500 tracking-wider">FACULTY DASHBOARD</p>
               </div>
             </div>
-            <div className="hidden md:flex space-x-8">
+            <div className="hidden md:flex space-x-8 items-center">
               <NavLink to="/faculty-dashboard" active>Dashboard</NavLink>
-              <NavLink to="/projects">All Projects</NavLink>
               <NavLink to="/profile">Profile</NavLink>
+
+              {/* Bell Icon for Notifications */}
+              <div className="relative">
+                <button
+                  className="relative text-gray-500 hover:text-gray-700 focus:outline-none"
+                  onClick={toggleNotificationDropdown}
+                >
+                  <FaBell className="w-6 h-6" />
+                  {unreadCount > 0 && (
+                    <span className="absolute top-1 right-1 bg-red-500 h-2.5 w-2.5 rounded-full border-2 border-white"></span>
+                  )}
+                </button>
+                {/* Notification Dropdown */}
+                {isNotificationDropdownOpen && (
+                <div className="absolute right-0 mt-2 w-80 bg-white border border-gray-200 rounded-lg shadow-xl z-50 overflow-hidden">
+                  <div className="p-4 bg-gray-50 border-b border-gray-200 flex justify-between items-center">
+                    <h4 className="text-sm font-bold text-gray-700">Notifications</h4>
+                    <span className="text-xs text-brickRed font-semibold">{unreadCount} New</span>
+                  </div>
+                  
+                  <ul className="divide-y divide-gray-200 max-h-72 overflow-y-auto">
+                    {notifications.length === 0 ? (
+                      <li className="p-6 text-sm text-gray-500 text-center italic">
+                        No notifications yet.
+                      </li>
+                    ) : (
+                      notifications.map(notif => (
+                        <li 
+                          key={notif._id}
+                          onClick={() => handleNotificationClick(notif)}
+                          className={`p-4 text-sm cursor-pointer transition-colors ${notif.isRead ? 'bg-white hover:bg-gray-50 text-gray-600' : 'bg-red-50 hover:bg-red-100 text-gray-900'}`}
+                        >
+                          <div className={`mb-1 ${notif.isRead ? 'font-semibold text-gray-700' : 'font-bold text-brickRed'}`}>
+                            {notif.title}
+                          </div>
+                          <div className="text-gray-600 line-clamp-2">
+                            {notif.message}
+                          </div>
+                          <div className="text-xs text-gray-400 mt-2">
+                            {new Date(notif.createdAt).toLocaleDateString()} at {new Date(notif.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          </div>
+                        </li>
+                      ))
+                    )}
+                  </ul>
+                </div>
+                )}
+              </div>
             </div>
           </div>
         </div>
@@ -162,12 +287,20 @@ function ProfessorDashboard() {
             <h1 className="text-5xl font-bold text-brickRed mt-1">{name}.</h1>
             <p className="mt-2 text-gray-600">You have <span className="font-bold text-brickRed">{ongoingProjects.length} active projects</span>.</p>
           </div>
-          <button 
-            onClick={() => setIsModalOpen(true)}
-            className="bg-brickRed w-max hover:bg-red-800 text-white px-6 py-3 rounded-lg shadow-lg flex items-center gap-2 font-semibold transition"
-          >
-            + Create New Project
-          </button>
+          <div className="flex gap-3">
+            <button 
+              onClick={() => setIsNoticeModalOpen(true)}
+              className="bg-white border-2 border-brickRed text-brickRed w-max hover:bg-red-50 px-6 py-3 rounded-lg shadow-sm flex items-center gap-2 font-semibold transition"
+            >
+              Post Notice
+            </button>
+            <button 
+              onClick={() => setIsProjectModalOpen(true)}
+              className="bg-brickRed w-max hover:bg-red-800 text-white px-6 py-3 rounded-lg shadow-lg flex items-center gap-2 font-semibold transition"
+            >
+              + Create Project
+            </button>
+          </div>
         </div>
 
         <hr className="border-gray-300 mb-10" />
@@ -210,7 +343,7 @@ function ProfessorDashboard() {
         )}
       </main>
 
-      {/* --- MODAL (POPUP FORM) --- */}
+      {/* --- CREATE PROJECT MODAL --- */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-xl shadow-2xl w-full max-w-md p-6 relative">
@@ -245,7 +378,7 @@ function ProfessorDashboard() {
                 <select 
                   className="block w-full rounded-md border-gray-300 shadow-sm border p-2 focus:border-brickRed focus:ring-brickRed bg-white"
                   onChange={handleAddDomain}
-                  defaultValue="" // Ensures it resets visually
+                  defaultValue="" 
                 >
                   <option value="" disabled>Select a Domain...</option>
                   {DOMAINS.map((d) => (
@@ -317,6 +450,65 @@ function ProfessorDashboard() {
         </div>
       )}
 
+      {/* --- POST NOTICE MODAL --- */}
+      {isNoticeModalOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-md p-6 relative">
+            <button 
+              onClick={() => setIsNoticeModalOpen(false)}
+              className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+            </button>
+            
+            <h2 className="text-2xl font-bold text-gray-800 mb-4">Post a Notice</h2>
+            <p className="text-sm text-gray-500 mb-6">Broadcast an announcement to your students.</p>
+            
+            <form onSubmit={handlePostNotice} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Notice Title</label>
+                <input 
+                  type="text" 
+                  required 
+                  className="mt-1 block w-full rounded-md border border-gray-300 shadow-sm p-2 focus:border-brickRed focus:ring-brickRed outline-none"
+                  value={noticeData.title}
+                  onChange={(e) => setNoticeData({...noticeData, title: e.target.value})}
+                  placeholder="e.g., Lab Meeting Rescheduled"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Message</label>
+                <textarea 
+                  required 
+                  rows="4" 
+                  className="mt-1 block w-full rounded-md border border-gray-300 shadow-sm p-2 focus:border-brickRed focus:ring-brickRed outline-none"
+                  value={noticeData.message}
+                  onChange={(e) => setNoticeData({...noticeData, message: e.target.value})}
+                  placeholder="Type your announcement here..."
+                />
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button 
+                  type="button" 
+                  onClick={() => setIsNoticeModalOpen(false)}
+                  className="w-full bg-white border border-gray-300 text-gray-700 py-2 rounded-lg font-bold hover:bg-gray-50 transition"
+                >
+                  Cancel
+                </button>
+                <button 
+                  type="submit" 
+                  className="w-full bg-brickRed text-white py-2 rounded-lg font-bold hover:bg-red-800 transition shadow-sm"
+                >
+                  Send Notice
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
@@ -339,7 +531,7 @@ function ProjectCard({ project, isPast }) {
     if (domain.includes("Cyber")) return "bg-red-50 text-red-700 border-red-200";
     return "bg-gray-50 text-gray-700 border-gray-200";
   }
-  return (
+return (
     <div className="bg-white rounded-xl shadow-sm hover:shadow-md border border-gray-100 p-6 flex flex-col justify-between h-64 transition-transform duration-200 hover:-translate-y-1">
       <div>
         <div className="flex justify-between items-start mb-4">

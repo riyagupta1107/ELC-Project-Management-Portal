@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { auth } from '../firebase';
 import logo from '../assets/thapar-logo.jpg';
@@ -190,52 +190,62 @@ function NavLink({ to, children, active }) {
 }
 
 function ProjectCard({ project }) {
-    const getDomainColor = (domain) => {
-      if (!domain) return "bg-gray-50 text-gray-700 border-gray-200";
-      if (domain.includes("AI") || domain.includes("Machine")) return "bg-purple-50 text-purple-700 border-purple-200";
-      if (domain.includes("Web")) return "bg-blue-50 text-blue-700 border-blue-200";
-      if (domain.includes("Cyber")) return "bg-red-50 text-red-700 border-red-200";
-      return "bg-gray-50 text-gray-700 border-gray-200";
-    }
-  
-    const isCompleted = project.status === "Completed";
-  
-    return (
-      <div className="bg-white rounded-xl shadow-sm hover:shadow-md border border-gray-100 p-6 flex flex-col justify-between h-64 transition-transform duration-200 hover:-translate-y-1">
-        <div>
-          <div className="flex justify-between items-start mb-4">
-            <span className={`px-3 py-1 rounded-full text-xs font-semibold ${isCompleted ? 'bg-gray-100 text-gray-600' : 'bg-green-50 text-green-700'}`}>
-              {project.status}
-            </span>
-            
-            <div className="flex flex-wrap gap-1 justify-end max-w-[60%]">
-               {project.domain && project.domain.slice(0, 2).map((d, index) => (
-                  <span key={index} className={`px-2 py-1 rounded text-xs font-medium border ${getDomainColor(d)}`}>
-                    {d}
-                  </span>
-               ))}
-               {project.domain && project.domain.length > 2 && (
-                  <span className="px-2 py-1 rounded text-xs font-medium bg-gray-50 text-gray-500 border border-gray-200">+{project.domain.length - 2}</span>
-               )}
-            </div>
-          </div>
+  // 1. Initialize the navigation hook
+  const navigate = useNavigate(); 
+
+  const getDomainColor = (domain) => {
+    if (!domain) return "bg-gray-50 text-gray-700 border-gray-200";
+    if (domain.includes("AI") || domain.includes("Machine")) return "bg-purple-50 text-purple-700 border-purple-200";
+    if (domain.includes("Web")) return "bg-blue-50 text-blue-700 border-blue-200";
+    if (domain.includes("Cyber")) return "bg-red-50 text-red-700 border-red-200";
+    return "bg-gray-50 text-gray-700 border-gray-200";
+  }
+
+  const isCompleted = project.status === "Completed";
+
+  return (
+    <div className="bg-white rounded-xl shadow-sm hover:shadow-md border border-gray-100 p-6 flex flex-col justify-between h-64 transition-transform duration-200 hover:-translate-y-1">
+      <div>
+        <div className="flex justify-between items-start mb-4">
+          <span className={`px-3 py-1 rounded-full text-xs font-semibold ${isCompleted ? 'bg-gray-100 text-gray-600' : 'bg-green-50 text-green-700'}`}>
+            {project.status}
+          </span>
           
-          <h4 className="text-xl font-bold text-gray-800 mb-2 line-clamp-2">{project.title}</h4>
-          <p className="text-gray-600 text-sm line-clamp-3">{project.description}</p>
+          <div className="flex flex-wrap gap-1 justify-end max-w-[60%]">
+             {project.domain && project.domain.slice(0, 2).map((d, index) => (
+                <span key={index} className={`px-2 py-1 rounded text-xs font-medium border ${getDomainColor(d)}`}>
+                  {d}
+                </span>
+             ))}
+             {project.domain && project.domain.length > 2 && (
+                <span className="px-2 py-1 rounded text-xs font-medium bg-gray-50 text-gray-500 border border-gray-200">+{project.domain.length - 2}</span>
+             )}
+          </div>
         </div>
         
-        <div className="mt-4 pt-4 border-t border-gray-100 flex items-center justify-between">
-           <div className="flex flex-col">
-              <span className="text-xs text-gray-500 uppercase tracking-wide">Project Lead</span>
-              <span className="text-sm font-semibold text-gray-700">
-                {project.professorName || "Unknown Faculty"}
-              </span>
-           </div>
-           {/* If you have a View Project modal or route, you can wrap this in a Link or onClick */}
-          <span className="text-sm font-medium text-brickRed cursor-pointer hover:underline self-end mb-1">View Details &rarr;</span>
-        </div>
+        <h4 className="text-xl font-bold text-gray-800 mb-2 line-clamp-2">{project.title}</h4>
+        <p className="text-gray-600 text-sm line-clamp-3">{project.description}</p>
       </div>
-    );
+      
+      <div className="mt-4 pt-4 border-t border-gray-100 flex items-center justify-between">
+         <div className="flex flex-col">
+            <span className="text-xs text-gray-500 uppercase tracking-wide">Project Lead</span>
+            <span className="text-sm font-semibold text-gray-700">
+              {project.professorName || "Unknown Faculty"}
+            </span>
+         </div>
+         
+        {/* 2. Add the onClick handler to route to the details page */}
+        <span 
+          onClick={() => navigate(`/project-details/${project._id}`)} 
+          className="text-sm font-medium text-brickRed cursor-pointer hover:underline self-end mb-1"
+        >
+          View Details &rarr;
+        </span>
+
+      </div>
+    </div>
+  );
 }
 
 export default Projects;
