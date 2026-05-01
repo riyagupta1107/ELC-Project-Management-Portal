@@ -7,6 +7,9 @@ import connectDB from "./config/db.js";
 import userRoutes from "./routes/userRoutes.js";
 import projectRoutes from "./routes/projectRoutes.js";
 import applicationRoutes from "./routes/applicationRoutes.js";
+import noticeRoutes from "./routes/noticeRoutes.js";
+import notificationRoutes from "./routes/notificationRoutes.js";
+
 
 dotenv.config();
 connectDB();
@@ -19,6 +22,8 @@ app.use(express.json());
 app.use("/api/users", userRoutes);
 app.use("/api/projects", projectRoutes);
 app.use("/api/applications", applicationRoutes);
+app.use("/api/notices", noticeRoutes);
+app.use("/api/notifications", notificationRoutes);
 
 const PORT = process.env.PORT;
 

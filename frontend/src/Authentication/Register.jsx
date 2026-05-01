@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
+import { createUserWithEmailAndPassword, updateProfile , signOut} from 'firebase/auth';
 import { auth } from '../firebase.js';
 import axios from 'axios';
 
@@ -66,7 +66,10 @@ function Register() {
           role: formData.role, 
           firstName: formData.firstName,
           lastName: formData.lastName,
+          phone: formData.phone,
         });
+
+        await signOut(auth);
 
         alert("Registration successful!");
         navigate('/');
