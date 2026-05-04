@@ -1,14 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Link } from 'react-router-dom';
 import { auth } from '../../firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 import axios from 'axios';
+import TopNavbar from '../../components/TopNavbar';
+import { Link } from 'react-router-dom';
 import logo from '../../assets/thapar-logo.jpg';
 import { FaBell } from 'react-icons/fa'; 
 import axiosInstance from '../../api/axiosInstance';
 import { useSocket } from '../../context/SocketContext';
 import toast from 'react-hot-toast';
+
 
 // --- CONSTANTS ---
 const DOMAINS = [
@@ -51,10 +53,13 @@ function ProfessorDashboard() {
   const [newProject, setNewProject] = useState({
     title: '', domain: [], description: '', students: 0, status: 'Ongoing'
   });
-
-  const toggleNotificationDropdown = () => {
-    setIsNotificationDropdownOpen(!isNotificationDropdownOpen);
-  };
+  const [draftPrompt, setDraftPrompt] = useState('');
+  const [draftSuggestion, setDraftSuggestion] = useState('');
+  const [draftSuggestedDomains, setDraftSuggestedDomains] = useState([]);
+  const [drafting, setDrafting] = useState(false);
+  const [draftResult, setDraftResult] = useState(null);
+  const [draftError, setDraftError] = useState('');
+  const [showDraftCard, setShowDraftCard] = useState(false);
 
   // --- 1. FETCH PROJECTS FROM DB ---
   const fetchProjects = async (user) => {
@@ -162,7 +167,54 @@ function ProfessorDashboard() {
     });
   };
 
-  // --- 5. HANDLE FORM SUBMITS ---
+  const handleGenerateDraft = async () => {
+    const rawInput = draftPrompt.trim() || newProject.description.trim();
+    if (!rawInput) {
+      setDraftError("Type some initial description text first, then click Reform with AI.");
+      return;
+    }
+
+    const user = auth.currentUser;
+    if (!user) {
+      setDraftError("Please sign in again before using Magic Draft.");
+      return;
+    }
+
+    setDrafting(true);
+    setDraftError('');
+    setDraftResult(null);
+
+    try {
+      const token = await user.getIdToken();
+      const response = await axios.post("http://localhost:5000/api/projects/draft", { rawInput }, {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
+      setDraftResult(response.data);
+      setDraftSuggestion(response.data.description || '');
+      setDraftSuggestedDomains(response.data.domains || []);
+      setShowDraftCard(true);
+    } catch (error) {
+      console.error("Draft error:", error);
+      setDraftError(error?.response?.data?.message || error.message || "Failed to generate draft.");
+    } finally {
+      setDrafting(false);
+    }
+  };
+
+  const handleAcceptDraft = () => {
+    if (!draftSuggestion.trim()) return;
+
+    setNewProject(prev => ({
+      ...prev,
+      description: draftSuggestion,
+      domain: Array.from(new Set([...(prev.domain || []), ...draftSuggestedDomains]))
+    }));
+  };
+
+  // --- 4. HANDLE FORM SUBMIT ---
+  // --- 4. HANDLE FORM SUBMIT ---
   const handleCreateProject = async (e) => {
     e.preventDefault();
     const user = auth.currentUser;
@@ -212,72 +264,7 @@ function ProfessorDashboard() {
   return (
     <div className="min-h-screen bg-offWhite font-sans text-gray-800 relative">
       
-      {/* NAVBAR */}
-      <nav className="bg-white shadow-sm sticky top-0 z-40 border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between h-20 items-center">
-            <div className="flex-shrink-0 flex items-center gap-3">
-              <img className="h-20 w-auto" src={logo} alt="Thapar Logo" />
-              <div className="hidden md:block">
-                <h1 className="text-xl font-bold text-brickRed tracking-wide">ELC PORTAL</h1>
-                <p className="text-xs text-gray-500 tracking-wider">FACULTY DASHBOARD</p>
-              </div>
-            </div>
-            <div className="hidden md:flex space-x-8 items-center">
-              <NavLink to="/faculty-dashboard" active>Dashboard</NavLink>
-              <NavLink to="/profile">Profile</NavLink>
-
-              {/* Bell Icon for Notifications */}
-              <div className="relative">
-                <button
-                  className="relative text-gray-500 hover:text-gray-700 focus:outline-none"
-                  onClick={toggleNotificationDropdown}
-                >
-                  <FaBell className="w-6 h-6" />
-                  {unreadCount > 0 && (
-                    <span className="absolute top-1 right-1 bg-red-500 h-2.5 w-2.5 rounded-full border-2 border-white"></span>
-                  )}
-                </button>
-                {/* Notification Dropdown */}
-                {isNotificationDropdownOpen && (
-                <div className="absolute right-0 mt-2 w-80 bg-white border border-gray-200 rounded-lg shadow-xl z-50 overflow-hidden">
-                  <div className="p-4 bg-gray-50 border-b border-gray-200 flex justify-between items-center">
-                    <h4 className="text-sm font-bold text-gray-700">Notifications</h4>
-                    <span className="text-xs text-brickRed font-semibold">{unreadCount} New</span>
-                  </div>
-                  
-                  <ul className="divide-y divide-gray-200 max-h-72 overflow-y-auto">
-                    {notifications.length === 0 ? (
-                      <li className="p-6 text-sm text-gray-500 text-center italic">
-                        No notifications yet.
-                      </li>
-                    ) : (
-                      notifications.map(notif => (
-                        <li 
-                          key={notif._id}
-                          onClick={() => handleNotificationClick(notif)}
-                          className={`p-4 text-sm cursor-pointer transition-colors ${notif.isRead ? 'bg-white hover:bg-gray-50 text-gray-600' : 'bg-red-50 hover:bg-red-100 text-gray-900'}`}
-                        >
-                          <div className={`mb-1 ${notif.isRead ? 'font-semibold text-gray-700' : 'font-bold text-brickRed'}`}>
-                            {notif.title}
-                          </div>
-                          <div className="text-gray-600 line-clamp-2">
-                            {notif.message}
-                          </div>
-                          <div className="text-xs text-gray-400 mt-2">
-                            {new Date(notif.createdAt).toLocaleDateString()} at {new Date(notif.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                          </div>
-                        </li>
-                      ))
-                    )}
-                  </ul>
-                </div>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-      </nav>
+      <TopNavbar subtitle="FACULTY DASHBOARD" />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
         {/* HEADER */}
@@ -287,20 +274,19 @@ function ProfessorDashboard() {
             <h1 className="text-5xl font-bold text-brickRed mt-1">{name}.</h1>
             <p className="mt-2 text-gray-600">You have <span className="font-bold text-brickRed">{ongoingProjects.length} active projects</span>.</p>
           </div>
-          <div className="flex gap-3">
-            <button 
-              onClick={() => setIsNoticeModalOpen(true)}
-              className="bg-white border-2 border-brickRed text-brickRed w-max hover:bg-red-50 px-6 py-3 rounded-lg shadow-sm flex items-center gap-2 font-semibold transition"
-            >
-              Post Notice
-            </button>
-            <button 
-              onClick={() => setIsModalOpen(true)}
-              className="bg-brickRed w-max hover:bg-red-800 text-white px-6 py-3 rounded-lg shadow-lg flex items-center gap-2 font-semibold transition"
-            >
-              + Create Project
-            </button>
-          </div>
+          <button 
+            onClick={() => {
+              setIsModalOpen(true);
+              setShowDraftCard(false);
+              setDraftResult(null);
+              setDraftSuggestion('');
+              setDraftSuggestedDomains([]);
+              setDraftError('');
+            }}
+            className="bg-brickRed w-max hover:bg-red-800 text-white px-6 py-3 rounded-lg shadow-lg flex items-center gap-2 font-semibold transition"
+          >
+            + Create New Project
+          </button>
         </div>
 
         <hr className="border-gray-300 mb-10" />
@@ -346,7 +332,7 @@ function ProfessorDashboard() {
       {/* --- CREATE PROJECT MODAL --- */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-md p-6 relative">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-5xl p-6 relative">
             <button 
               onClick={() => setIsModalOpen(false)}
               className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"
@@ -356,172 +342,177 @@ function ProfessorDashboard() {
             
             <h2 className="text-2xl font-bold text-gray-800 mb-4">Add New Project</h2>
             
-            <form onSubmit={handleCreateProject} className="space-y-4">
+            <div className={showDraftCard ? "grid gap-6 xl:grid-cols-[1.7fr_1fr]" : "space-y-4"}>
+              <form onSubmit={handleCreateProject} className="space-y-4">
 
-              {/* TITLE */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Project Title</label>
-                <input 
-                  type="text" 
-                  required
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2 focus:border-brickRed focus:ring-brickRed"
-                  value={newProject.title}
-                  onChange={(e) => setNewProject({...newProject, title: e.target.value})}
-                />
-              </div>
-
-              {/* --- MULTI-SELECT DOMAIN SECTION --- */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Domains (Select multiple)</label>
-                
-                {/* The Dropdown */}
-                <select 
-                  className="block w-full rounded-md border-gray-300 shadow-sm border p-2 focus:border-brickRed focus:ring-brickRed bg-white"
-                  onChange={handleAddDomain}
-                  defaultValue="" 
-                >
-                  <option value="" disabled>Select a Domain...</option>
-                  {DOMAINS.map((d) => (
-                    <option key={d} value={d}>{d}</option>
-                  ))}
-                </select>
-
-                {/* The Selected Tags Display */}
-                <div className="flex flex-wrap gap-2 mt-2">
-                  {newProject.domain.map((d, index) => (
-                    <span key={index} className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-red-100 text-brickRed border border-red-200">
-                      {d}
-                      <button 
-                        type="button"
-                        onClick={() => removeDomain(d)}
-                        className="ml-1 text-red-500 hover:text-red-700 focus:outline-none font-bold"
-                      >
-                        ×
-                      </button>
-                    </span>
-                  ))}
-                </div>
-              </div>
-
-              {/* DESCRIPTION */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Description</label>
-                <textarea 
-                  required
-                  rows="3"
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2 focus:border-brickRed focus:ring-brickRed"
-                  value={newProject.description}
-                  onChange={(e) => setNewProject({...newProject, description: e.target.value})}
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
                 <div>
-                   <label className="block text-sm font-medium text-gray-700">Students Needed</label>
-                   <input 
-                    type="number" 
-                    min="1"
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2"
-                    value={newProject.students}
-                    onChange={(e) => setNewProject({...newProject, students: e.target.value})}
+                  <label className="block text-sm font-medium text-gray-700">Project Title</label>
+                  <input 
+                    type="text" 
+                    required
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2 focus:border-brickRed focus:ring-brickRed"
+                    value={newProject.title}
+                    onChange={(e) => setNewProject({...newProject, title: e.target.value})}
                   />
                 </div>
+
                 <div>
-                   <label className="block text-sm font-medium text-gray-700">Status</label>
-                   <select 
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2"
-                    value={newProject.status}
-                    onChange={(e) => setNewProject({...newProject, status: e.target.value})}
-                   >
-                     <option value="Ongoing">Ongoing</option>
-                     <option value="Completed">Completed</option>
-                   </select>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Domains (Select multiple)</label>
+                  <select 
+                    className="block w-full rounded-md border-gray-300 shadow-sm border p-2 focus:border-brickRed focus:ring-brickRed bg-white"
+                    onChange={handleAddDomain}
+                    defaultValue=""
+                  >
+                    <option value="" disabled>Select a Domain...</option>
+                    {DOMAINS.map((d) => (
+                      <option key={d} value={d}>{d}</option>
+                    ))}
+                  </select>
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    {newProject.domain.map((d, index) => (
+                      <span key={index} className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-red-100 text-brickRed border border-red-200">
+                        {d}
+                        <button 
+                          type="button"
+                          onClick={() => removeDomain(d)}
+                          className="ml-1 text-red-500 hover:text-red-700 focus:outline-none font-bold"
+                        >
+                          ×
+                        </button>
+                      </span>
+                    ))}
+                  </div>
                 </div>
-              </div>
 
-              <button 
-                type="submit"
-                className="w-full bg-brickRed text-white py-2 rounded-lg font-bold hover:bg-red-800 transition"
-              >
-                Save Project
-              </button>
-            </form>
+                <div>
+                  <div className="flex items-center justify-between gap-3">
+                    <label className="block text-sm font-medium text-gray-700">Description</label>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setDraftPrompt(newProject.description || '');
+                        setDraftError('');
+                        setShowDraftCard(true);
+                      }}
+                      className="text-sm text-brickRed font-semibold hover:underline"
+                    >
+                      Reform with AI
+                    </button>
+                  </div>
+                  <textarea 
+                    required
+                    rows="3"
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2 focus:border-brickRed focus:ring-brickRed"
+                    value={newProject.description}
+                    onChange={(e) => setNewProject({...newProject, description: e.target.value})}
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Students Needed</label>
+                    <input 
+                      type="number" 
+                      min="1"
+                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2"
+                      value={newProject.students}
+                      onChange={(e) => setNewProject({...newProject, students: e.target.value})}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Status</label>
+                    <select 
+                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2"
+                      value={newProject.status}
+                      onChange={(e) => setNewProject({...newProject, status: e.target.value})}
+                    >
+                      <option value="Ongoing">Ongoing</option>
+                      <option value="Completed">Completed</option>
+                    </select>
+                  </div>
+                </div>
+
+                <button 
+                  type="submit"
+                  className="w-full bg-brickRed text-white py-2 rounded-lg font-bold hover:bg-red-800 transition"
+                >
+                  Save Project
+                </button>
+              </form>
+
+              {showDraftCard && (
+                <div className="rounded-3xl border border-gray-200 bg-gray-50 p-6 shadow-sm">
+                  {draftResult && (
+                    <div className="flex justify-end mb-4">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setDraftPrompt(newProject.description || '');
+                          setDraftResult(null);
+                          setDraftSuggestion('');
+                          setDraftSuggestedDomains([]);
+                          setDraftError('');
+                        }}
+                        className="text-sm font-semibold text-brickRed hover:underline"
+                      >
+                        Reset
+                      </button>
+                    </div>
+                  )}
+
+                  {draftError && <p className="mt-2 text-sm text-red-600">{draftError}</p>}
+                  <button
+                    type="button"
+                    onClick={handleGenerateDraft}
+                    disabled={drafting}
+                    className="mt-1 w-full bg-brickRed text-white py-2 rounded-xl font-semibold hover:bg-red-800 transition disabled:opacity-60"
+                  >
+                    {drafting ? 'Generating suggestion...' : 'Refine description with AI'}
+                  </button>
+
+                  {draftResult && (
+                    <div className="mt-6 rounded-3xl border border-gray-200 bg-white p-5">
+                      <div className="mb-4">
+                        <h4 className="text-lg font-semibold text-gray-900">Suggested Description</h4>
+                        <textarea
+                          rows="5"
+                          value={draftSuggestion}
+                          onChange={(e) => setDraftSuggestion(e.target.value)}
+                          className="mt-3 block w-full rounded-xl border-gray-300 shadow-sm border p-3 focus:border-brickRed focus:ring-brickRed"
+                        />
+                      </div>
+                      {draftSuggestedDomains.length > 0 && (
+                        <div className="mb-4">
+                          <p className="text-sm font-semibold text-gray-600 mb-2">Suggested Domains</p>
+                          <div className="flex flex-wrap gap-2">
+                            {draftSuggestedDomains.map((domain, index) => (
+                              <span key={index} className="px-2 py-1 rounded-full bg-red-50 text-brickRed border border-red-200 text-xs">
+                                {domain}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      <button
+                        type="button"
+                        onClick={handleAcceptDraft}
+                        className="w-full bg-brickRed text-white py-2 rounded-xl font-semibold hover:bg-red-800 transition"
+                      >
+                        Apply suggestion to form
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}
-
-      {/* --- POST NOTICE MODAL --- */}
-      {isNoticeModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-md p-6 relative">
-            <button 
-              onClick={() => setIsNoticeModalOpen(false)}
-              className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-            </button>
-            
-            <h2 className="text-2xl font-bold text-gray-800 mb-4">Post a Notice</h2>
-            <p className="text-sm text-gray-500 mb-6">Broadcast an announcement to your students.</p>
-            
-            <form onSubmit={handlePostNotice} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Notice Title</label>
-                <input 
-                  type="text" 
-                  required 
-                  className="mt-1 block w-full rounded-md border border-gray-300 shadow-sm p-2 focus:border-brickRed focus:ring-brickRed outline-none"
-                  value={noticeData.title}
-                  onChange={(e) => setNoticeData({...noticeData, title: e.target.value})}
-                  placeholder="e.g., Lab Meeting Rescheduled"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Message</label>
-                <textarea 
-                  required 
-                  rows="4" 
-                  className="mt-1 block w-full rounded-md border border-gray-300 shadow-sm p-2 focus:border-brickRed focus:ring-brickRed outline-none"
-                  value={noticeData.message}
-                  onChange={(e) => setNoticeData({...noticeData, message: e.target.value})}
-                  placeholder="Type your announcement here..."
-                />
-              </div>
-
-              <div className="flex gap-3 pt-2">
-                <button 
-                  type="button" 
-                  onClick={() => setIsNoticeModalOpen(false)}
-                  className="w-full bg-white border border-gray-300 text-gray-700 py-2 rounded-lg font-bold hover:bg-gray-50 transition"
-                >
-                  Cancel
-                </button>
-                <button 
-                  type="submit" 
-                  className="w-full bg-brickRed text-white py-2 rounded-lg font-bold hover:bg-red-800 transition shadow-sm"
-                >
-                  Send Notice
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
     </div>
   );
 }
 
 // --- SUB COMPONENTS ---
-
-function NavLink({ to, children, active }) {
-  return (
-    <Link to={to} className={`inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium h-full ${active ? 'border-brickRed text-brickRed' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>
-      {children}
-    </Link>
-  );
-}
 
 function ProjectCard({ project, isPast }) {
   const navigate = useNavigate();
