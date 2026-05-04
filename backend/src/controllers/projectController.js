@@ -2,6 +2,124 @@ import Project from "../models/Project.js";
 import User from "../models/User.js";
 import Application from "../models/Application.js";
 
+const GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions";
+const GROQ_MODEL = process.env.GROQ_MODEL || "llama-3.3-70b-versatile";
+
+// const extractGroqResponseText = (json) => {
+//   if (!json) return null;
+//   if (typeof json.output_text === 'string') return json.output_text;
+//   if (typeof json.text === 'string') return json.text;
+//   const outputs = json.output || json.outputs || [];
+//   const items = Array.isArray(outputs) ? outputs : [outputs];
+//   for (const item of items) {
+//     if (typeof item === 'string') return item;
+//     if (item?.content) {
+//       const content = Array.isArray(item.content) ? item.content : [item.content];
+//       for (const piece of content) {
+//         if (typeof piece === 'string') return piece;
+//         if (piece?.text) return piece.text;
+//         if (typeof piece?.content === 'string') return piece.content;
+//       }
+//     }
+//   }
+//   return null;
+// };
+
+const extractGroqResponseText = (json) => {
+  return json?.choices?.[0]?.message?.content || null;
+};
+
+// Draft a polished project description using Groq Llama
+export const draftProjectDescription = async (req, res) => {
+  try {
+    const GROQ_API_KEY = process.env.GROQ_API_KEY;
+    const { rawInput } = req.body;
+    if (!rawInput || !rawInput.trim()) {
+      return res.status(400).json({ message: "Raw input is required to generate a draft." });
+    }
+
+    if (!GROQ_API_KEY) {
+      return res.status(500).json({ message: "Groq API key is not configured on the server." });
+    }
+
+    const domainList = [
+      "AI",
+      "ML",
+      "DL",
+      "Computer Vision",
+      "Cloud Computing",
+      "Data Science",
+      "Web Development",
+      "Mobile App",
+      "Robotics",
+      "Cybersecurity",
+      "Embedded Systems",
+      "NLP",
+      "Computer Graphics",
+      "Other"
+    ];
+
+    const prompt = `You are an academic project drafting assistant for university faculty. Expand the professor's rough notes into a polished, professional project description suitable for a university course project listing. Use a clear academic tone, concise structure, and keep the text focused on the proposed project goals and outcomes. Infer relevant domains only from this list: ${domainList.join(", ")}. Return JSON only with exactly two fields: description and domains. description should be a clean paragraph. domains should be an array of the inferred domain names from the provided list. Do not include any additional text or explanation.`;
+
+    const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json",
+    Authorization: `Bearer ${GROQ_API_KEY}`
+  },
+  body: JSON.stringify({
+    model: GROQ_MODEL,
+    messages: [
+      { role: "system", content: prompt },
+      { role: "user", content: rawInput }
+    ],
+    temperature: 0.2,
+    max_tokens: 400,
+    response_format: { type: "json_object" }
+  })
+});
+
+    const result = await response.json();
+
+    console.log("Groq status:", response.status);
+    console.log("Groq result:", JSON.stringify(result, null, 2));
+
+    if (!response.ok) {
+      const message = result?.error?.message || JSON.stringify(result);
+      return res.status(500).json({ message: `AI draft request failed: ${message}` });
+    }
+
+    const text = extractGroqResponseText(result);
+    if (!text) {
+      return res.status(500).json({ message: "AI service returned an invalid response." });
+    }
+
+    let parsed;
+    try {
+      parsed = JSON.parse(text.trim());
+    } catch (parseErr) {
+      const jsonMatch = text.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) {
+        return res.status(500).json({ message: "AI response could not be parsed as JSON." });
+      }
+      parsed = JSON.parse(jsonMatch[0]);
+    }
+
+    const { description, domains } = parsed;
+    if (!description || !Array.isArray(domains)) {
+      return res.status(500).json({ message: "AI returned an unexpected draft format." });
+    }
+
+    return res.status(200).json({
+      description: description.trim(),
+      domains: domains.map((domain) => domain?.trim()).filter(Boolean)
+    });
+  } catch (error) {
+    console.error("Draft AI error:", error);
+    return res.status(500).json({ message: "Server error while drafting the project description." });
+  }
+};
+
 // Add a new project
 export const addProject = async(req,res) => {
     try {

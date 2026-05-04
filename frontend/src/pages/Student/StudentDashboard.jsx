@@ -3,26 +3,27 @@ import { Link, useNavigate } from 'react-router-dom';
 import { auth } from '../../firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 import axios from 'axios';
-import logo from '../../assets/thapar-logo.jpg';
-import { FaBell } from 'react-icons/fa'; 
-import axiosInstance from '../../api/axiosInstance';
+import TopNavbar from '../../components/TopNavbar';
 import { useSocket } from '../../context/SocketContext';
+import logo from '../../assets/thapar-logo.jpg';
+import { FaBell } from 'react-icons/fa';
+import axiosInstance from '../../api/axiosInstance';
 import toast from 'react-hot-toast';
 
 // --- CONSTANTS ---
 const STATUS_COLORS = {
-  Pending:  { bg: 'bg-yellow-50',  text: 'text-yellow-700', dot: 'bg-yellow-400' },
-  Accepted: { bg: 'bg-green-50',   text: 'text-green-700',  dot: 'bg-green-500'  },
-  Rejected: { bg: 'bg-red-50',     text: 'text-red-700',    dot: 'bg-red-400'    },
-  Ongoing:  { bg: 'bg-blue-50',    text: 'text-blue-700',   dot: 'bg-blue-500'   },
-  Completed:{ bg: 'bg-gray-100',   text: 'text-gray-600',   dot: 'bg-gray-400'   },
+  Pending: { bg: 'bg-yellow-50', text: 'text-yellow-700', dot: 'bg-yellow-400' },
+  Accepted: { bg: 'bg-green-50', text: 'text-green-700', dot: 'bg-green-500' },
+  Rejected: { bg: 'bg-red-50', text: 'text-red-700', dot: 'bg-red-400' },
+  Ongoing: { bg: 'bg-blue-50', text: 'text-blue-700', dot: 'bg-blue-500' },
+  Completed: { bg: 'bg-gray-100', text: 'text-gray-600', dot: 'bg-gray-400' },
 };
 
 const DOMAIN_COLORS = (domain = '') => {
-  if (domain.includes('AI') || domain.includes('Machine'))   return 'bg-purple-50 text-purple-700 border-purple-200';
-  if (domain.includes('Web'))                                return 'bg-blue-50 text-blue-700 border-blue-200';
-  if (domain.includes('Cyber'))                              return 'bg-red-50 text-red-700 border-red-200';
-  if (domain.includes('Data'))                               return 'bg-teal-50 text-teal-700 border-teal-200';
+  if (domain.includes('AI') || domain.includes('Machine')) return 'bg-purple-50 text-purple-700 border-purple-200';
+  if (domain.includes('Web')) return 'bg-blue-50 text-blue-700 border-blue-200';
+  if (domain.includes('Cyber')) return 'bg-red-50 text-red-700 border-red-200';
+  if (domain.includes('Data')) return 'bg-teal-50 text-teal-700 border-teal-200';
   if (domain.includes('IoT') || domain.includes('Embedded')) return 'bg-orange-50 text-orange-700 border-orange-200';
   return 'bg-gray-50 text-gray-700 border-gray-200';
 };
@@ -30,19 +31,6 @@ const DOMAIN_COLORS = (domain = '') => {
 // =====================================================================
 // SUB-COMPONENTS
 // =====================================================================
-
-function NavLink({ to, children, active }) {
-  return (
-    <Link
-      to={to}
-      className={`inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium h-full transition ${
-        active ? 'border-brickRed text-brickRed' : 'border-transparent text-gray-500 hover:text-gray-700'
-      }`}
-    >
-      {children}
-    </Link>
-  );
-}
 
 function StatCard({ label, value, accent }) {
   return (
@@ -67,7 +55,7 @@ function ApplicationCard({ application, handleWithdraw }) {
           })}
         </p>
         {application.status === "Pending" && (
-          <button 
+          <button
             onClick={() => handleWithdraw(application._id)}
             className="mt-3 bg-red-50 hover:bg-red-100 text-red-600 font-semibold py-1.5 px-4 rounded-lg text-xs border border-red-200 transition-colors"
           >
@@ -101,8 +89,8 @@ function EnrolledCard({ project }) {
             <span key={i} className={`px-2 py-0.5 rounded text-xs font-medium border ${DOMAIN_COLORS(d)}`}>{d}</span>
           ))}
         </div>
-        <span 
-          onClick={() => navigate(`/project-details/${project._id}`)} 
+        <span
+          onClick={() => navigate(`/project-details/${project._id}`)}
           className="text-sm font-medium text-brickRed cursor-pointer hover:underline"
         >
           View Details →
@@ -127,7 +115,7 @@ function StudentDashboard() {
   const [enrolledProjects, setEnrolled] = useState([]);
 
   const [activeTab, setActiveTab] = useState('applications');
-  
+
   // Notification State
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -149,9 +137,17 @@ function StudentDashboard() {
 
       setAllProjects(projectsRes.data.projects || []);
       setApplications(appsRes.data || []);
-      setEnrolled(appsRes.data.filter((a) => a.status === 'Accepted') || []);
-      setNotifications(notifRes.data || []);
-      setUnreadCount(notifRes.data.filter(n => !n.isRead).length);
+      setEnrolled(appsRes.data?.filter((a) => a.status === 'Accepted') || []);
+
+      const data = notifRes.data;
+      const notificationsArray = Array.isArray(data) ? data 
+                              : Array.isArray(data?.notifications) ? data.notifications 
+                              : Array.isArray(data?.data) ? data.data 
+                              : []; 
+
+      
+      const unread = notificationsArray.filter(n => !n.isRead);
+      setUnreadCount(unread.length); 
     } catch (err) {
       console.error('Error fetching dashboard data:', err);
     } finally {
@@ -222,56 +218,8 @@ function StudentDashboard() {
 
   return (
     <div className="min-h-screen bg-offWhite font-sans text-gray-800 relative">
-      {/* NAVBAR */}
-      <nav className="bg-white shadow-sm sticky top-0 z-40 border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between h-20 items-center">
-            <div className="flex-shrink-0 flex items-center gap-3">
-              <img className="h-20 w-auto" src={logo} alt="Thapar Logo" />
-              <div className="hidden md:block">
-                <h1 className="text-xl font-bold text-brickRed tracking-wide">ELC PORTAL</h1>
-                <p className="text-xs text-gray-500 tracking-wider">STUDENT DASHBOARD</p>
-              </div>
-            </div>
-            <div className="hidden md:flex space-x-8 items-center">
-              <NavLink to="/student-dashboard" active>Dashboard</NavLink>
-              <NavLink to="/projects">Projects</NavLink>
-              <NavLink to="/profile">Profile</NavLink>
-              
-              {/* Notification Bell */}
-              <div className="relative">
-                <button onClick={toggleNotificationDropdown} className="relative text-gray-500 hover:text-gray-700 focus:outline-none">
-                  <FaBell className="w-6 h-6" />
-                  {unreadCount > 0 && (
-                    <span className="absolute top-1 right-1 bg-red-500 h-2.5 w-2.5 rounded-full border-2 border-white"></span>
-                  )}
-                </button>
-                {isNotificationDropdownOpen && (
-                  <div className="absolute right-0 mt-2 w-80 bg-white border border-gray-200 rounded-lg shadow-xl z-50 overflow-hidden">
-                    <div className="p-4 bg-gray-50 border-b border-gray-200 flex justify-between items-center">
-                      <h4 className="text-sm font-bold text-gray-700">Notifications</h4>
-                      <span className="text-xs text-brickRed font-semibold">{unreadCount} New</span>
-                    </div>
-                    <ul className="divide-y divide-gray-200 max-h-72 overflow-y-auto">
-                      {notifications.length === 0 ? (
-                        <li className="p-6 text-sm text-gray-500 text-center italic">No notifications yet.</li>
-                      ) : (
-                        notifications.map(notif => (
-                          <li key={notif._id} onClick={() => handleNotificationClick(notif)} className={`p-4 text-sm cursor-pointer transition-colors ${notif.isRead ? 'bg-white hover:bg-gray-50' : 'bg-red-50 hover:bg-red-100'}`}>
-                            <div className={`mb-1 ${notif.isRead ? 'font-semibold text-gray-700' : 'font-bold text-brickRed'}`}>{notif.title}</div>
-                            <div className="text-gray-600 line-clamp-2">{notif.message}</div>
-                            <div className="text-xs text-gray-400 mt-2">{new Date(notif.createdAt).toLocaleDateString()}</div>
-                          </li>
-                        ))
-                      )}
-                    </ul>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-      </nav>
+
+      <TopNavbar subtitle="STUDENT DASHBOARD" />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
         {/* HEADER */}
@@ -297,7 +245,7 @@ function StudentDashboard() {
         {/* TABS */}
         <div className="flex gap-1 mb-8 bg-gray-100 p-1 rounded-xl w-fit">
           {[{ key: 'applications', label: `My Applications (${applications.length})` },
-            { key: 'enrolled', label: `Enrolled (${enrolledProjects.length})` }].map((tab) => (
+          { key: 'enrolled', label: `Enrolled (${enrolledProjects.length})` }].map((tab) => (
             <button key={tab.key} onClick={() => setActiveTab(tab.key)} className={`px-5 py-2 rounded-lg text-sm font-semibold transition ${activeTab === tab.key ? 'bg-white shadow text-brickRed' : 'text-gray-500 hover:text-gray-700'}`}>
               {tab.label}
             </button>

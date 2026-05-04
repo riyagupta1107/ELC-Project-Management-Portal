@@ -3,7 +3,7 @@ import { auth } from '../firebase';
 
 const axiosInstance = axios.create({
     // Automatically uses the URL from your .env file
-    baseURL: import.meta.env.VITE_API_BASE_URL,
+    baseURL: "http://localhost:5000/api",
 });
 
 // This "Interceptor" runs automatically BEFORE every request
