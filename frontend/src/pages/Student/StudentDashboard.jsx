@@ -17,7 +17,7 @@ import { Link } from 'react-router-dom';
 import { auth } from '../../firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 import axios from 'axios';
-import logo from '../../assets/thapar-logo.jpg';
+import TopNavbar from '../../components/TopNavbar';
 
 // --- CONSTANTS ---
 const STATUS_COLORS = {
@@ -40,21 +40,6 @@ const DOMAIN_COLORS = (domain = '') => {
 // =====================================================================
 // SUB-COMPONENTS
 // =====================================================================
-
-function NavLink({ to, children, active }) {
-  return (
-    <Link
-      to={to}
-      className={`inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium h-full transition ${
-        active
-          ? 'border-brickRed text-brickRed'
-          : 'border-transparent text-gray-500 hover:text-gray-700'
-      }`}
-    >
-      {children}
-    </Link>
-  );
-}
 
 function StatCard({ label, value, accent }) {
   return (
@@ -252,25 +237,7 @@ function StudentDashboard() {
   return (
     <div className="min-h-screen bg-offWhite font-sans text-gray-800 relative">
 
-      {/* NAVBAR */}
-      <nav className="bg-white shadow-sm sticky top-0 z-40 border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between h-20 items-center">
-            <div className="flex-shrink-0 flex items-center gap-3">
-              <img className="h-20 w-auto" src={logo} alt="Thapar Logo" />
-              <div className="hidden md:block">
-                <h1 className="text-xl font-bold text-brickRed tracking-wide">ELC PORTAL</h1>
-                <p className="text-xs text-gray-500 tracking-wider">STUDENT DASHBOARD</p>
-              </div>
-            </div>
-            <div className="hidden md:flex space-x-8">
-              <NavLink to="/student-dashboard" active>Dashboard</NavLink>
-              <NavLink to="/projects">All Projects</NavLink>
-              <NavLink to="/profile">Profile</NavLink>
-            </div>
-          </div>
-        </div>
-      </nav>
+      <TopNavbar subtitle="STUDENT DASHBOARD" />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
 
