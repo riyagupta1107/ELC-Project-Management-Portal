@@ -295,7 +295,7 @@ function ProfessorDashboard() {
               Post Notice
             </button>
             <button 
-              onClick={() => setIsProjectModalOpen(true)}
+              onClick={() => setIsModalOpen(true)}
               className="bg-brickRed w-max hover:bg-red-800 text-white px-6 py-3 rounded-lg shadow-lg flex items-center gap-2 font-semibold transition"
             >
               + Create Project
@@ -531,7 +531,7 @@ function ProjectCard({ project, isPast }) {
     if (domain.includes("Cyber")) return "bg-red-50 text-red-700 border-red-200";
     return "bg-gray-50 text-gray-700 border-gray-200";
   }
-return (
+  return (
     <div className="bg-white rounded-xl shadow-sm hover:shadow-md border border-gray-100 p-6 flex flex-col justify-between h-64 transition-transform duration-200 hover:-translate-y-1">
       <div>
         <div className="flex justify-between items-start mb-4">
@@ -565,5 +565,4 @@ return (
     </div>
   );
 }
-
 export default ProfessorDashboard;
