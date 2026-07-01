@@ -10,6 +10,7 @@ module.exports = {
         'brickRed': '#ad3614',
         'darkBrickRed': '#672727',
         'burntBrick': '#631d0c',
+        'offWhite' : '#f8f0f3',
       },
     },
   },

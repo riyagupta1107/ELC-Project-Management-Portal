@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '../firebase.js';
+import axios from 'axios';
+
 import bgImage from '../assets/thapar-bg.jpeg'
 import logo from '../assets/thapar-logo-new.png';
 
@@ -28,22 +30,18 @@ function Login() {
 
     try {
       const userCredential = await signInWithEmailAndPassword(auth, formData.email, formData.password);
-
       const user = userCredential.user;
       
-      const response = await fetch("http://localhost:5000/users/profile", {
-        method: "GET",
+      const token = await user.getIdToken();
+      
+      const response = await axios.get("http://localhost:5000/api/users/profile", {
         headers: {
           "Content-Type": "application/json",
-          "x-firebase-uid": user.uid,
+          "Authorization": `Bearer ${token}`,
         },
       });
-
-      if (!response.ok) {
-        throw new Error("Failed to fetch user profile");
-      }
-      const data = await response.json();
-      const role = data.role;
+      
+      const role = response.data.role.toUpperCase();
 
       if (role === "FACULTY") {
         navigate('/faculty-dashboard');
@@ -70,7 +68,7 @@ function Login() {
         {error && <p className="text-red-500 text-sm mb-4 text-center">{error}</p>}
         
         <form onSubmit={handleSubmit}>
-          <img src={logo} className='w-44 h-44 mx-auto block mb-6' />
+          <img src={logo} className='w-44 h-44 mx-auto block mb-6' alt="Logo" />
           <div className='gap-6 mb-6'>
             <div className="mb-5">
               <label htmlFor="email" className="block mb-2 text-sm font-medium text-gray-900 font-inter">Email address</label>
@@ -109,7 +107,6 @@ function Login() {
           </button>
         </form>
 
-        {/* The Link to Sign Up */}
         <div className="mt-6 text-center">
           <p className="text-sm text-gray-600">
             Don't have an account?{' '}
