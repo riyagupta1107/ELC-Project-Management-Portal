@@ -1,7 +1,7 @@
 import Notice from "../models/Notice.js";
 import Notification from "../models/Notification.js"; 
 import User from "../models/User.js"; 
-import { getIO } from "../../server.js"; 
+//import { getIO } from "../../server.js"; 
 
 export const createNotice = async (req, res) => {
     try {
@@ -34,7 +34,8 @@ export const createNotice = async (req, res) => {
         await Notification.insertMany(notificationsToSave);
 
         // 5. Trigger Real-time Socket Broadcast
-        const io = getIO();
+        const io = req.app.get('socketio'); 
+        
         if (io) {
             // This rings the bell for anyone currently logged in
             io.emit("newNotification", {
