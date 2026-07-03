@@ -8,6 +8,7 @@ const io = new Server(server, {
 });
 
 export const getIO = () => io;
+app.set('socketio', io);
 
 const PORT = process.env.PORT || 5000;
 server.listen(PORT, () => console.log(`Server running on port ${PORT}`));

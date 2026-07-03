@@ -2,6 +2,7 @@ import { createContext, useContext, useState, useEffect } from 'react';
 import { auth } from '../firebase.js'; 
 import { onAuthStateChanged } from 'firebase/auth';
 import axios from 'axios';
+import axiosInstance from '../api/axiosInstance.js';
 
 const AuthContext = createContext();
 
@@ -18,15 +19,16 @@ export const AuthProvider = ({ children }) => {
       
       if (user) {
         try {
+          // const response = await axiosInstance.get("/users/profile");
+          // setUserRole(response.data.role.toUpperCase());
           const token = await user.getIdToken();
           
-          const response = await axios.get("http://localhost:5000/api/users/profile", {
+          const response = await axios.get("http://localhost:5000/api/profile", {
             headers: {
               "Authorization": `Bearer ${token}` 
             }
           });
           
-          // Save exactly as it comes from the database ("FACULTY" or "STUDENT")
           setUserRole(response.data.role.toUpperCase()); 
         } catch (error) {
           console.error("Error fetching role:", error);
