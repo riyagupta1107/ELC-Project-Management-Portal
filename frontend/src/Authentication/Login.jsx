@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '../firebase.js';
 import axios from 'axios';
+import axiosInstance from '../api/axiosInstance.js';
 
 import bgImage from '../assets/thapar-bg.jpeg'
 import logo from '../assets/thapar-logo-new.png';
@@ -32,14 +33,15 @@ function Login() {
       const userCredential = await signInWithEmailAndPassword(auth, formData.email, formData.password);
       const user = userCredential.user;
       
-      const token = await user.getIdToken();
+      // const token = await user.getIdToken();
       
-      const response = await axios.get("http://localhost:5000/api/users/profile", {
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`,
-        },
-      });
+      // const response = await axios.get("http://localhost:5000/api/users/profile", {
+      //   headers: {
+      //     "Content-Type": "application/json",
+      //     "Authorization": `Bearer ${token}`,
+      //   },
+      // });
+      const response = await axiosInstance.get("/users/profile");
       
       const role = response.data.role.toUpperCase();
 

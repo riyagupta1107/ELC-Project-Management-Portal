@@ -31,8 +31,7 @@ describe('Project API Endpoints', () => {
   // POST /api/projects/add
   // ---------------------------------------------------------
   describe('POST /api/projects/add', () => {
-    const validProject = { title: 'AI Research', description: 'Testing the app' };
-
+    const validProject = { title: 'AI Research', description: 'Testing the app', domain: 'AI' };
     it('should deny project creation for a Student (403)', async () => {
       admin.auth().verifyIdToken.mockResolvedValue({ uid: 'uid-student' });
 
