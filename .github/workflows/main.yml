@@ -1,0 +1,86 @@
+name: ELC Portal CI/CD Pipeline
+
+# Trigger the workflow on pushes and pull requests to the main branch
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  # -----------------------------------------------------
+  # JOB 1: Continuous Integration (Testing)
+  # -----------------------------------------------------
+  test:
+    name: Run Unit and Integration Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Setup Node.js Environment
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Install Backend Dependencies & Test
+        working-directory: ./backend
+        run: |
+          npm ci
+          npm test
+
+      - name: Install Frontend Dependencies & Test
+        working-directory: ./frontend
+        run: |
+          npm ci
+          npm test
+
+  # -----------------------------------------------------
+  # JOB 2: Continuous Deployment (Build & Push to AWS)
+  # -----------------------------------------------------
+  build-and-push:
+    name: Build Docker Images and Push to AWS ECR
+    runs-on: ubuntu-latest
+    # This ensures deployment ONLY happens if the tests pass
+    needs: test 
+    # Only run this job on pushes to main (not on pull requests)
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v1
+
+      - name: Build, Tag, and Push Backend Image
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          ECR_REPOSITORY: elc-portal-backend
+          IMAGE_TAG: latest
+        working-directory: ./backend
+        run: |
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+
+      - name: Build, Tag, and Push Frontend Image
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          ECR_REPOSITORY: elc-portal-frontend
+          IMAGE_TAG: latest
+        working-directory: ./frontend
+        run: |
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
