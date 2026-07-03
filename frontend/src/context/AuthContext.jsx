@@ -19,22 +19,15 @@ export const AuthProvider = ({ children }) => {
       
       if (user) {
         try {
-          // const response = await axiosInstance.get("/users/profile");
-          // setUserRole(response.data.role.toUpperCase());
-          const token = await user.getIdToken();
-          
-          const response = await axios.get("http://localhost:5000/api/profile", {
-            headers: {
-              "Authorization": `Bearer ${token}` 
-            }
-          });
-          
+          // axiosInstance automatically attaches the token and base URL!
+          const response = await axiosInstance.get("/users/profile"); 
           setUserRole(response.data.role.toUpperCase()); 
         } catch (error) {
-          console.error("Error fetching role:", error);
-          setUserRole(null);
+            console.error("Error fetching role:", error);
+            setUserRole(null);
+          }
         }
-      } else {
+      else {
         setUserRole(null);
       }
       
