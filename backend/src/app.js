@@ -18,7 +18,9 @@ const app = express();
 
 app.use(cors());
 app.use(express.json());
-
+app.get("/", (req, res) => {
+    res.status(200).send("ELC Backend is running normally");
+  });
 app.use("/api/users", userRoutes);
 app.use("/api/projects", projectRoutes);
 app.use("/api/applications", applicationRoutes);
