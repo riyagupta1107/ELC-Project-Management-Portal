@@ -21,6 +21,8 @@
 // src/middleware/authMiddleWare.js
 import admin from "../config/firebase-admin.js"; // Adjust path to your firebase admin config
 import User from "../models/User.js";
+import { getAuth } from "firebase-admin/auth";
+
 
 export const requireUser = async (req, res, next) => {
     // 1. Extract Bearer token instead of raw UID
@@ -33,9 +35,8 @@ export const requireUser = async (req, res, next) => {
 
     try {
         // 2. Securely verify the token with Firebase
-        const decodedToken = await admin.auth().verifyIdToken(token);
+        const decodedToken = await getAuth().verifyIdToken(token);        
         const firebaseUid = decodedToken.uid;
-
         // 3. Find user
         const user = await User.findOne({ firebaseUid });
         if (!user) {
