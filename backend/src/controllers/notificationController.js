@@ -3,7 +3,7 @@ import Notification from "../models/Notification.js";
 // Make sure 'export' is at the start of the function
 export const getUserNotifications = async (req, res) => {
     try {
-        const uid = req.user.firebaseUid || req.user.uid;
+        const uid = req.user._id.toString();
         const notifications = await Notification.find({ recipientUid: uid }).sort({ createdAt: -1 });
         res.status(200).json(notifications);
     } catch (error) {
