@@ -1,25 +1,19 @@
 import axios from 'axios';
-import { auth } from '../firebase';
 
 const axiosInstance = axios.create({
-    // Automatically uses the URL from your .env file
-    baseURL: "http://localhost:5000/api",
+  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5000',
 });
 
-// This "Interceptor" runs automatically BEFORE every request
+// Intercept requests and attach the JWT token
 axiosInstance.interceptors.request.use(
-    async (config) => {
-        const user = auth.currentUser;
-        if (user) {
-            const token = await user.getIdToken();
-            // Automatically attach the token to the headers!
-            config.headers.Authorization = `Bearer ${token}`;
-        }
-        return config;
-    },
-    (error) => {
-        return Promise.reject(error);
+  (config) => {
+    const token = localStorage.getItem('token');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
     }
+    return config;
+  },
+  (error) => Promise.reject(error)
 );
 
 export default axiosInstance;

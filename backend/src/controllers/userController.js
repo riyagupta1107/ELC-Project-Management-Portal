@@ -1,11 +1,20 @@
 // src/controllers/userController.js
 import User from "../models/User.js";
+import bcrypt from "bcryptjs";
+import jwt from "jsonwebtoken";
 
+// Helper function to generate JWT
+const generateToken = (id) => {
+  return jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: '30d' });
+};
+
+// @desc    Register a new user
+// @route   POST /api/users/register
 export const createUser = async (req, res) => {
     try {
-        const { firebaseUid, email, role, firstName, lastName, phone } = req.body;
+        const { email, password, role, firstName, lastName, phone } = req.body;
 
-        if (!firebaseUid || !email || !role || !firstName || !lastName) {
+        if (!password || !email || !role || !firstName || !lastName) {
             return res.status(400).json({ message: "Missing required fields" });
         }
 
@@ -17,23 +26,36 @@ export const createUser = async (req, res) => {
             return res.status(400).json({ message: "Invalid role specified" });
         }
 
-        let user = await User.findOne({ firebaseUid });
-
-        // If user already exists, just return them
-        if (user) {
-            return res.status(200).json({ message: "User already exists", user });
+        // FIX: Check if user exists by email, NOT firebaseUid
+        const userExists = await User.findOne({ email });
+        if (userExists) {
+            return res.status(400).json({ message: "User already exists" });
         }
-        // If user doesn't exist, create a new one with the uppercase role
-        user = await User.create({
-            firebaseUid, 
+
+        // Hash the password
+        const salt = await bcrypt.genSalt(10);
+        const hashedPassword = await bcrypt.hash(password, salt);
+        
+        // Create a new user with hashed password
+        const user = await User.create({ 
             email, 
+            password: hashedPassword,
             role: normalizedRole, 
             firstName, 
             lastName,
             phone,
         });
         
-        return res.status(201).json({ message: "User created successfully", user });
+        // FIX: Return the JWT token so the frontend can log them in immediately
+        return res.status(201).json({ 
+            message: "User created successfully", 
+            _id: user._id,
+            firstName: user.firstName,
+            lastName: user.lastName,
+            email: user.email,
+            role: user.role,
+            token: generateToken(user._id)
+        });
 
     } catch (error) {
         console.error("Error in createUser:", error);
@@ -41,6 +63,35 @@ export const createUser = async (req, res) => {
     }
 };
 
+// @desc    Authenticate a user & get token
+// @route   POST /api/users/login
+export const loginUser = async (req, res) => {
+    try {
+        const { email, password } = req.body;
+
+        const user = await User.findOne({ email });
+
+        // Check if user exists and password matches the hashed password in DB
+        if (user && (await bcrypt.compare(password, user.password))) {
+            res.json({
+                _id: user._id,
+                firstName: user.firstName,
+                lastName: user.lastName,
+                email: user.email,
+                role: user.role,
+                token: generateToken(user._id)
+            });
+        } else {
+            res.status(401).json({ message: "Invalid email or password" });
+        }
+    } catch (error) {
+        console.error("Error in loginUser:", error);
+        res.status(500).json({ message: "Login failed", error: error.message });
+    }
+};
+
+// @desc    Get current user profile
+// @route   GET /api/users/me
 export const getUserProfile = async (req, res) => {
     try {
         res.status(200).json(req.user);
@@ -50,10 +101,10 @@ export const getUserProfile = async (req, res) => {
     }
 };
 
-// Get all faculties for the directory
+// @desc    Get all faculties for the directory
+// @route   GET /api/users/faculties
 export const getFaculties = async (req, res) => {
     try {
-        // Find all users with the FACULTY role, but exclude sensitive info if you had any
         const faculties = await User.find({ role: "FACULTY" })
             .select('firstName lastName email') 
             .sort({ firstName: 1 }); // Sort alphabetically
@@ -65,18 +116,20 @@ export const getFaculties = async (req, res) => {
     }
 };
 
-// Update user profile details
+// @desc    Update user profile details
+// @route   PUT /api/users/profile
 export const updateUserProfile = async (req, res) => {
     try {
-        const firebaseUid = req.user.firebaseUid;
-        // Extract the fields the user is allowed to change
+        // FIX: Find the user by their MongoDB _id attached by the authMiddleware
+        const userId = req.user._id;
+        
         const { firstName, lastName, phone, bio, resumeLink } = req.body;
 
-        const updatedUser = await User.findOneAndUpdate(
-            { firebaseUid },
+        const updatedUser = await User.findByIdAndUpdate(
+            userId,
             { firstName, lastName, phone, bio, resumeLink },
-            { returnDocument: 'after' } // Returns the newly updated document
-        );
+            { new: true, runValidators: true } // 'new: true' is the mongoose equivalent to returnDocument: 'after'
+        ).select('-password'); // Exclude password from the response
 
         if (!updatedUser) {
             return res.status(404).json({ message: "User not found" });

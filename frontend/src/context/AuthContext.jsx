@@ -1,45 +1,55 @@
-import { createContext, useContext, useState, useEffect } from 'react';
-import { auth } from '../firebase.js'; 
-import { onAuthStateChanged } from 'firebase/auth';
-import axios from 'axios';
-import axiosInstance from '../api/axiosInstance.js';
+import { createContext, useState, useEffect, useContext } from 'react';
+import axiosInstance from '../api/axiosInstance';
 
 const AuthContext = createContext();
 
-export const useAuth = () => useContext(AuthContext);
-
 export const AuthProvider = ({ children }) => {
-  const [currentUser, setCurrentUser] = useState(null);
-  const [userRole, setUserRole] = useState(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
 
+  // Check if user is already logged in on initial load
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      setCurrentUser(user);
-      
-      if (user) {
+    const checkUserLoggedIn = async () => {
+      const token = localStorage.getItem('token');
+      if (token) {
         try {
-          // axiosInstance automatically attaches the token and base URL!
-          const response = await axiosInstance.get("/users/profile"); 
-          setUserRole(response.data.role.toUpperCase()); 
+          // If token exists, fetch the user profile
+          const response = await axiosInstance.get('/api/users/me');
+          setUser(response.data);
         } catch (error) {
-            console.error("Error fetching role:", error);
-            setUserRole(null);
-          }
+          console.error("Token invalid or expired", error);
+          localStorage.removeItem('token'); // Clear bad token
         }
-      else {
-        setUserRole(null);
       }
-      
-      setIsLoading(false);
-    });
-
-    return unsubscribe;
+      setLoading(false);
+    };
+    checkUserLoggedIn();
   }, []);
 
+  const login = async (email, password) => {
+    const response = await axiosInstance.post('/api/users/login', { email, password });
+    localStorage.setItem('token', response.data.token); // Save token
+    setUser(response.data); // Save user state
+    return response.data;
+  };
+
+  const register = async (userData) => {
+    const response = await axiosInstance.post('/api/users/register', userData);
+    localStorage.setItem('token', response.data.token);
+    setUser(response.data);
+    return response.data;
+  };
+
+  const logout = () => {
+    localStorage.removeItem('token');
+    setUser(null);
+  };
+
   return (
-    <AuthContext.Provider value={{ currentUser, userRole, isLoading }}>
-      {children}
+    <AuthContext.Provider value={{ user, login, register, logout, loading }}>
+      {!loading && children}
     </AuthContext.Provider>
   );
 };
+
+export const useAuth = () => useContext(AuthContext);
