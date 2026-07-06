@@ -1,31 +1,19 @@
-// import React from 'react'
-
-// function Faculties() {
-//   return (
-//     <div>Faculties</div>
-//   )
-// }
-
-// export default Faculties
-
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
-import { auth } from '../firebase';
 import { Link } from 'react-router-dom';
-import logo from '../assets/thapar-logo.jpg'; // Adjust path if needed
+import logo from '../assets/thapar-logo.jpg'; 
+import axiosInstance from '../api/axiosInstance';
+import { useAuth } from '../context/AuthContext';
 
 function Faculties() {
   const [faculties, setFaculties] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const { user } = useAuth(); // NEW: Hook into JWT auth state
 
   useEffect(() => {
     const fetchFaculties = async () => {
       try {
-        const token = await auth.currentUser.getIdToken();
-        const response = await axios.get("http://localhost:5000/api/users/faculties", {
-          headers: { "Authorization": `Bearer ${token}` }
-        });
+        const response = await axiosInstance.get("/api/users/faculties");
         setFaculties(response.data);
       } catch (error) {
         console.error("Error fetching faculties:", error);
@@ -34,12 +22,12 @@ function Faculties() {
       }
     };
 
-    const unsubscribe = auth.onAuthStateChanged((user) => {
-      if (user) fetchFaculties();
-    });
-
-    return () => unsubscribe();
-  }, []);
+    if (user) {
+      fetchFaculties();
+    } else {
+      setLoading(false);
+    }
+  }, [user]);
 
   const filteredFaculties = faculties.filter(f => 
     `${f.firstName} ${f.lastName}`.toLowerCase().includes(searchTerm.toLowerCase())
@@ -47,8 +35,6 @@ function Faculties() {
 
   return (
     <div className="min-h-screen bg-offWhite font-sans text-gray-800">
-      
-      {/* Basic Navbar (Match this to your other student pages) */}
       <nav className="bg-white shadow-sm sticky top-0 z-40 border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-20 items-center">

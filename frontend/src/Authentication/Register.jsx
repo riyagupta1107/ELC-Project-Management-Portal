@@ -1,14 +1,13 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { createUserWithEmailAndPassword, updateProfile , signOut} from 'firebase/auth';
-import { auth } from '../firebase.js';
-import axios from 'axios';
+import { useAuth } from '../context/AuthContext'; // NEW: Import JWT Auth Context
 
 import bgImage from '../assets/thapar-bg.jpeg';
 import logo from '../assets/thapar-logo-new.png';
 
 function Register() {
   const navigate = useNavigate();
+  const { register } = useAuth(); // NEW: Destructure register function
 
   const [formData, setFormData] = useState({
     firstName: '',
@@ -50,36 +49,28 @@ function Register() {
 
     if (Object.keys(validationErrors).length === 0) {
       try {
-        // 1. Create User in Firebase
-        const userCredential = await createUserWithEmailAndPassword(auth, formData.email, formData.password);
-        const user = userCredential.user;
-
-        // 2. Update Firebase Profile
-        await updateProfile(user, {
-          displayName: `${formData.firstName} ${formData.lastName}`,
-        });
-
-        // 3. Sync with MongoDB Backend (Essential for your app logic)
-        await axios.post("http://localhost:5000/api/users/create", {
-          firebaseUid: user.uid,
-          email: user.email,
-          role: formData.role, 
+        // 1. Create User directly via Backend API
+        const userData = await register({
+          email: formData.email,
+          password: formData.password,
+          role: formData.role,
           firstName: formData.firstName,
           lastName: formData.lastName,
-          phone: formData.phone,
+          phone: formData.phone
         });
 
-        await signOut(auth);
+        // 2. Route user directly to dashboard since AuthContext logs them in automatically
+        const role = userData.role.toUpperCase();
+        if (role === "FACULTY") {
+          navigate('/faculty-dashboard');
+        } else {
+          navigate('/student-dashboard');
+        }
 
-        alert("Registration successful!");
-        navigate('/');
       } catch (error) {
         console.error("Registration Error:", error);
-        if (error.code === 'auth/email-already-in-use') {
-          alert('Email already in use');
-        } else {
-          alert('Registration failed: ' + error.message);
-        }
+        // Extract error message from backend
+        alert(error.response?.data?.message || 'Registration failed. Please try again.');
       }      
     }
   }
@@ -89,8 +80,7 @@ function Register() {
 
       <form className="bg-white p-8 rounded-lg shadow-lg w-full max-w-2xl bg-opacity-85" onSubmit={handleSubmit}>
 
-        <img src={logo} className='w-44 h-44 mx-auto block mb-6' />
-        {/* <h2 className="text-2xl font-bold mb-6 text-center text-customDarkText font-inter">Create an Account</h2> */}
+        <img src={logo} className='w-44 h-44 mx-auto block mb-6' alt="Logo" />
 
         <div className="grid gap-6 mb-6 md:grid-cols-2 w-full">
           {/* First Name */}
@@ -135,7 +125,7 @@ function Register() {
             {errors.phone && <p className="text-red-500 text-sm">{errors.phone}</p>}
           </div>
 
-          {/* Role Selection (New) */}
+          {/* Role Selection */}
           <div>
             <label htmlFor="role" className="block mb-2 text-sm font-medium text-gray-900 font-inter">Role</label>
             <select

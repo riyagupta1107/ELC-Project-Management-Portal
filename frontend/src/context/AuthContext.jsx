@@ -14,7 +14,7 @@ export const AuthProvider = ({ children }) => {
       if (token) {
         try {
           // If token exists, fetch the user profile
-          const response = await axiosInstance.get('/api/users/me');
+          const response = await axiosInstance.get('/api/users/profile');
           setUser(response.data);
         } catch (error) {
           console.error("Token invalid or expired", error);
