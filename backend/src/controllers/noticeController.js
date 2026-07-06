@@ -6,7 +6,7 @@ import User from "../models/User.js";
 export const createNotice = async (req, res) => {
     try {
         const { title, content } = req.body;
-        const authorUid = req.user.firebaseUid;
+        const authorUid = req.user._id.toString();
         const authorName = `Prof. ${req.user.firstName || req.user.lastName}`;
 
         // 1. Save the Notice (for the Announcements/Notices page)
@@ -18,11 +18,11 @@ export const createNotice = async (req, res) => {
         });
 
         // 2. Fetch all students to create persistent notifications
-        const students = await User.find({ role: "STUDENT" }).select("firebaseUid");
+        const students = await User.find({ role: "STUDENT" }).select("_id");
 
         // 3. Prepare Notification objects for the database
         const notificationsToSave = students.map(student => ({
-            recipientUid: student.firebaseUid,
+            recipientUid: student._id.toString(),
             title: `New Notice: ${title}`,
             message: `${authorName} posted a new announcement.`,
             type: "GENERAL",
