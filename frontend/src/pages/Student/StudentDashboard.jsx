@@ -1,13 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { auth } from '../../firebase';
-import { onAuthStateChanged } from 'firebase/auth';
-import axios from 'axios';
 import TopNavbar from '../../components/TopNavbar';
 import { useSocket } from '../../context/SocketContext';
-import logo from '../../assets/thapar-logo.jpg';
-import { FaBell } from 'react-icons/fa';
-import axiosInstance from '../../api/axiosInstance';
+import { useAuth } from '../../context/AuthContext'; // NEW: Imported AuthContext
+import axiosInstance from '../../api/axiosInstance'; // NEW: Use centralized Axios
 import toast from 'react-hot-toast';
 
 // --- CONSTANTS ---
@@ -106,33 +102,28 @@ function EnrolledCard({ project }) {
 function StudentDashboard() {
   const navigate = useNavigate();
   const socket = useSocket();
-  const [name, setName] = useState('');
+  const { user } = useAuth(); // NEW: Get user context
+
   const [greeting, setGreeting] = useState('');
   const [loading, setLoading] = useState(true);
 
   const [allProjects, setAllProjects] = useState([]);
   const [applications, setApplications] = useState([]);
   const [enrolledProjects, setEnrolled] = useState([]);
-
   const [activeTab, setActiveTab] = useState('applications');
 
   // Notification State
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
-  const [isNotificationDropdownOpen, setIsNotificationDropdownOpen] = useState(false);
-
-  const toggleNotificationDropdown = () => setIsNotificationDropdownOpen(!isNotificationDropdownOpen);
 
   // --- DATA FETCHING ---
-  const fetchData = async (user) => {
+  const fetchData = async () => {
     try {
-      const token = await user.getIdToken();
-      const headers = { "Authorization": `Bearer ${token}` };
-
+      // NEW: axiosInstance automatically attaches the JWT token!
       const [projectsRes, appsRes, notifRes] = await Promise.all([
-        axios.get('http://localhost:5000/api/projects/all-projects', { headers }),
-        axios.get('http://localhost:5000/api/applications/my-applications', { headers }),
-        axiosInstance.get('/notifications')
+        axiosInstance.get('/api/projects/all-projects'),
+        axiosInstance.get('/api/applications/my-applications'),
+        axiosInstance.get('/api/notifications')
       ]);
 
       setAllProjects(projectsRes.data.projects || []);
@@ -144,7 +135,6 @@ function StudentDashboard() {
                               : Array.isArray(data?.notifications) ? data.notifications 
                               : Array.isArray(data?.data) ? data.data 
                               : []; 
-
       
       const unread = notificationsArray.filter(n => !n.isRead);
       setUnreadCount(unread.length); 
@@ -156,21 +146,16 @@ function StudentDashboard() {
   };
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      if (user) {
-        const firstName = user.displayName ? user.displayName.split(' ')[0] : 'Student';
-        setName(firstName);
-        fetchData(user);
-      }
-    });
-
+    if (user) {
+      fetchData();
+    }
+    
     const hour = new Date().getHours();
     if (hour < 12) setGreeting('Good Morning');
     else if (hour < 18) setGreeting('Good Afternoon');
     else setGreeting('Good Evening');
 
-    return () => unsubscribe();
-  }, []);
+  }, [user]); // Re-run if user object loads
 
   // --- REAL-TIME NOTIFICATIONS ---
   useEffect(() => {
@@ -184,27 +169,10 @@ function StudentDashboard() {
     }
   }, [socket]);
 
-  const handleNotificationClick = async (notif) => {
-    try {
-      if (!notif.isRead) {
-        await axiosInstance.put(`/notifications/${notif._id}/read`);
-        setNotifications(prev => prev.map(n => n._id === notif._id ? { ...n, isRead: true } : n));
-        setUnreadCount(prev => Math.max(0, prev - 1));
-      }
-      if (notif.link) navigate(notif.link);
-      setIsNotificationDropdownOpen(false);
-    } catch (err) {
-      console.error("Error marking notification as read", err);
-    }
-  };
-
   const handleWithdraw = async (applicationId) => {
     if (!window.confirm("Are you sure you want to withdraw this application?")) return;
     try {
-      const token = await auth.currentUser.getIdToken();
-      await axios.delete(`http://localhost:5000/api/applications/${applicationId}`, {
-        headers: { "Authorization": `Bearer ${token}` }
-      });
+      await axiosInstance.delete(`/api/applications/${applicationId}`);
       setApplications(prev => prev.filter(app => app._id !== applicationId));
       toast.success("Application withdrawn.");
     } catch (error) {
@@ -218,14 +186,13 @@ function StudentDashboard() {
 
   return (
     <div className="min-h-screen bg-offWhite font-sans text-gray-800 relative">
-
       <TopNavbar subtitle="STUDENT DASHBOARD" />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
         {/* HEADER */}
         <div className="mb-8">
           <h2 className="text-3xl font-light text-gray-500">{greeting},</h2>
-          <h1 className="text-5xl font-bold text-brickRed mt-1">{name}.</h1>
+          <h1 className="text-5xl font-bold text-brickRed mt-1">{user?.firstName || 'Student'}.</h1>
           <p className="mt-2 text-gray-600">
             You have <span className="font-bold text-brickRed">{pendingCount} pending applications</span>
             {acceptedCount > 0 && <> and <span className="font-bold text-green-600">{acceptedCount} accepted</span></>}.

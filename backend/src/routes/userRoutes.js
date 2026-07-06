@@ -1,17 +1,27 @@
 import express from "express";
-import { createUser, getUserProfile, getFaculties, updateUserProfile} from "../controllers/userController.js";
+import { 
+    createUser, 
+    loginUser, 
+    getUserProfile, 
+    getFaculties, 
+    updateUserProfile 
+} from "../controllers/userController.js";
 import { requireUser } from '../middleware/authMiddleware.js';
-import { requireRole } from '../middleware/requireRole.js';
 
 const router = express.Router();
 
-// PUBLIC: Anyone can create an account
-router.post("/create", createUser);
+// 1. PUBLIC AUTH ROUTES
+// These must match exactly what AuthContext.jsx is calling
+router.post("/register", createUser);
+router.post("/login", loginUser);
 
-// GENERAL AUTH: Any logged-in user can fetch their own profile data
+// 2. PROTECTED PROFILE ROUTES
+// Any logged-in user can fetch or update their own profile data
 router.get("/profile", requireUser, getUserProfile);
-
-router.get("/faculties", requireUser, requireRole("FACULTY"), getFaculties);
 router.put("/profile", requireUser, updateUserProfile);
+
+// 3. PUBLIC DIRECTORY ROUTE (Requires login, but not a specific role)
+// Students need to be able to fetch the list of faculties, so do not restrict to FACULTY only
+router.get("/faculties", requireUser, getFaculties);
 
 export default router;

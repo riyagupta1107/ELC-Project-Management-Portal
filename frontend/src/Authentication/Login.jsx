@@ -1,15 +1,13 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { signInWithEmailAndPassword } from 'firebase/auth';
-import { auth } from '../firebase.js';
-import axios from 'axios';
-import axiosInstance from '../api/axiosInstance.js';
+import { useAuth } from '../context/AuthContext'; 
 
 import bgImage from '../assets/thapar-bg.jpeg'
 import logo from '../assets/thapar-logo-new.png';
 
 function Login() {
   const navigate = useNavigate();
+  const { login } = useAuth(); // NEW: Destructure login function
 
   const [formData, setFormData] = useState({
     email: '',
@@ -30,21 +28,13 @@ function Login() {
     setError('');
 
     try {
-      const userCredential = await signInWithEmailAndPassword(auth, formData.email, formData.password);
-      const user = userCredential.user;
+      // 1. Authenticate via your backend and get the user data & JWT
+      const userData = await login(formData.email, formData.password);
+      console.log("Login successful:", userData);
       
-      // const token = await user.getIdToken();
-      
-      // const response = await axios.get("http://localhost:5000/api/users/profile", {
-      //   headers: {
-      //     "Content-Type": "application/json",
-      //     "Authorization": `Bearer ${token}`,
-      //   },
-      // });
-      const response = await axiosInstance.get("/users/profile");
-      
-      const role = response.data.role.toUpperCase();
+      const role = userData?.role?.toUpperCase() || "STUDENT";
 
+      // 2. Navigate based on MongoDB role
       if (role === "FACULTY") {
         navigate('/faculty-dashboard');
       } else {
@@ -53,13 +43,8 @@ function Login() {
       
     } catch(err) {
       console.error(err);
-      if (err.code === 'auth/user-not-found' || err.code === 'auth/invalid-credential') {
-        setError("Invalid email or password.");
-      } else if (err.code === 'auth/wrong-password') {
-        setError('Incorrect password.');
-      } else {
-        setError('Login failed. Please try again.');
-      }
+      // Display the specific error message sent by your backend
+      setError(err.response?.data?.message || 'Login failed. Please check your credentials.');
     }
   }
 
@@ -67,7 +52,7 @@ function Login() {
     <div className="w-full min-h-screen flex items-center justify-center p-4 bg-[center_80%] bg-no-repeat" style={{ backgroundImage: `url(${bgImage})` }}>
       <div className="bg-gray-100 p-8 rounded-lg shadow-lg w-full max-w-2xl bg-opacity-85">
         
-        {error && <p className="text-red-500 text-sm mb-4 text-center">{error}</p>}
+        {error && <p className="text-red-500 text-sm mb-4 text-center font-bold">{error}</p>}
         
         <form onSubmit={handleSubmit}>
           <img src={logo} className='w-44 h-44 mx-auto block mb-6' alt="Logo" />
