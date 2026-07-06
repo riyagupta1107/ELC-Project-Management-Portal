@@ -13,11 +13,12 @@
   "dependencies": {
     "@langchain/core": "^1.1.43",
     "@langchain/groq": "^1.2.0",
+    "bcryptjs": "^3.0.3",
     "cors": "^2.8.5",
     "dotenv": "^17.2.3",
     "express": "^5.2.1",
     "express-list-endpoints": "^7.1.1",
-    "firebase-admin": "^14.1.0",
+    "jsonwebtoken": "^9.0.3",
     "mongoose": "^9.2.1",
     "socket.io": "^4.8.3",
     "zod": "^4.4.2"
