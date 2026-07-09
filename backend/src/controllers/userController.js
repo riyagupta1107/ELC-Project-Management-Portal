@@ -26,7 +26,7 @@ export const createUser = async (req, res) => {
             return res.status(400).json({ message: "Invalid role specified" });
         }
 
-        // FIX: Check if user exists by email, NOT firebaseUid
+        // Check if user already exists by email
         const userExists = await User.findOne({ email });
         if (userExists) {
             return res.status(400).json({ message: "User already exists" });
@@ -91,7 +91,7 @@ export const loginUser = async (req, res) => {
 };
 
 // @desc    Get current user profile
-// @route   GET /api/users/me
+// @route   GET /api/users/profile
 export const getUserProfile = async (req, res) => {
     try {
         res.status(200).json(req.user);

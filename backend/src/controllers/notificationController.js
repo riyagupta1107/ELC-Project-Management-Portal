@@ -14,9 +14,23 @@ export const getUserNotifications = async (req, res) => {
 export const markAsRead = async (req, res) => {
     try {
         const { id } = req.params;
-        await Notification.findByIdAndUpdate(id, { isRead: true });
+
+        // Find the notification first so we can verify ownership
+        const notification = await Notification.findById(id);
+        if (!notification) {
+            return res.status(404).json({ message: "Notification not found" });
+        }
+
+        // Security: only the intended recipient can mark it as read
+        if (notification.recipientUid !== req.user._id.toString()) {
+            return res.status(403).json({ message: "Forbidden" });
+        }
+
+        notification.isRead = true;
+        await notification.save();
+
         res.status(200).json({ message: "Marked as read" });
     } catch (error) {
         res.status(500).json({ message: "Error updating notification" });
     }
-};
+};

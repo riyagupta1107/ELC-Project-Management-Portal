@@ -28,16 +28,18 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (email, password) => {
     const response = await axiosInstance.post('/api/users/login', { email, password });
-    localStorage.setItem('token', response.data.token); // Save token
-    setUser(response.data); // Save user state
-    return response.data;
+    const { token, ...userData } = response.data;
+    localStorage.setItem('token', token); // Save token
+    setUser(userData); // Save user state (token excluded)
+    return userData;
   };
 
   const register = async (userData) => {
     const response = await axiosInstance.post('/api/users/register', userData);
-    localStorage.setItem('token', response.data.token);
-    setUser(response.data);
-    return response.data;
+    const { token, ...newUserData } = response.data;
+    localStorage.setItem('token', token);
+    setUser(newUserData); // Save user state (token excluded)
+    return newUserData;
   };
 
   const logout = () => {

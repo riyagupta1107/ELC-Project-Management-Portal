@@ -1,306 +1,190 @@
-import Project from "../models/Project.js";
-import User from "../models/User.js";
+// src/controllers/applicationController.js
 import Application from "../models/Application.js";
+import Project from "../models/Project.js";
+import Notification from "../models/Notification.js";
 
-const GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions";
-const GROQ_MODEL = process.env.GROQ_MODEL || "llama-3.3-70b-versatile";
-
-const extractGroqResponseText = (json) => {
-  return json?.choices?.[0]?.message?.content || null;
-};
-
-// Draft a polished project description using Groq Llama
-export const draftProjectDescription = async (req, res) => {
-  try {
-    const GROQ_API_KEY = process.env.GROQ_API_KEY;
-    const { rawInput } = req.body;
-    if (!rawInput || !rawInput.trim()) {
-      return res.status(400).json({ message: "Raw input is required to generate a draft." });
-    }
-
-    if (!GROQ_API_KEY) {
-      return res.status(500).json({ message: "Groq API key is not configured on the server." });
-    }
-
-    const domainList = [
-      "AI",
-      "ML",
-      "DL",
-      "Computer Vision",
-      "Cloud Computing",
-      "Data Science",
-      "Web Development",
-      "Mobile App",
-      "Robotics",
-      "Cybersecurity",
-      "Embedded Systems",
-      "NLP",
-      "Computer Graphics",
-      "Other"
-    ];
-
-    const prompt = `You are an academic project drafting assistant for university faculty. Expand the professor's rough notes into a polished, professional project description suitable for a university course project listing. Use a clear academic tone, concise structure, and keep the text focused on the proposed project goals and outcomes. Infer relevant domains only from this list: ${domainList.join(", ")}. Return JSON only with exactly two fields: description and domains. description should be a clean paragraph. domains should be an array of the inferred domain names from the provided list. Do not include any additional text or explanation.`;
-
-    const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-  method: "POST",
-  headers: {
-    "Content-Type": "application/json",
-    Authorization: `Bearer ${GROQ_API_KEY}`
-  },
-  body: JSON.stringify({
-    model: GROQ_MODEL,
-    messages: [
-      { role: "system", content: prompt },
-      { role: "user", content: rawInput }
-    ],
-    temperature: 0.2,
-    max_tokens: 400,
-    response_format: { type: "json_object" }
-  })
-});
-
-    const result = await response.json();
-
-    console.log("Groq status:", response.status);
-    console.log("Groq result:", JSON.stringify(result, null, 2));
-
-    if (!response.ok) {
-      const message = result?.error?.message || JSON.stringify(result);
-      return res.status(500).json({ message: `AI draft request failed: ${message}` });
-    }
-
-    const text = extractGroqResponseText(result);
-    if (!text) {
-      return res.status(500).json({ message: "AI service returned an invalid response." });
-    }
-
-    let parsed;
+// @desc    Student applies for a project
+// @route   POST /api/applications/apply
+export const applyForProject = async (req, res) => {
     try {
-      parsed = JSON.parse(text.trim());
-    } catch (parseErr) {
-      const jsonMatch = text.match(/\{[\s\S]*\}/);
-      if (!jsonMatch) {
-        return res.status(500).json({ message: "AI response could not be parsed as JSON." });
-      }
-      parsed = JSON.parse(jsonMatch[0]);
-    }
+        const { projectId, message, resumeLink } = req.body;
+        const studentUid = req.user._id.toString();
 
-    const { description, domains } = parsed;
-    if (!description || !Array.isArray(domains)) {
-      return res.status(500).json({ message: "AI returned an unexpected draft format." });
-    }
-
-    return res.status(200).json({
-      description: description.trim(),
-      domains: domains.map((domain) => domain?.trim()).filter(Boolean)
-    });
-  } catch (error) {
-    console.error("Draft AI error:", error);
-    return res.status(500).json({ message: "Server error while drafting the project description." });
-  }
-};
-
-// Add a new project
-export const addProject = async(req,res) => {
-    try {
-        const {title, domain, description, students, status} = req.body;
-        const professorUid = req.user._id.toString();
-
-        if (!title || !description || !domain) {
-            return res.status(400).json({message: "Title, Domain and Description are required"});
-        }
-        const domainArray = Array.isArray(domain) ? domain : [domain];
-
-        const newProject = await Project.create({
-            title, domain: domainArray, description, students: students || 1, status: status || "Ongoing", professorUid, enrolledStudents: []
-        });
-        res.status(201).json(newProject);
-    } catch(error) {
-        res.status(500).json({ message: "Server Error" });
-    }
-};
-
-// Get all projects
-// Get all projects with Pagination and Filtering
-export const getAllProjects = async (req, res) => {
-    try {
-        // 1. Get query parameters from the frontend URL (defaults to page 1, 9 items)
-        const page = parseInt(req.query.page) || 1;
-        const limit = parseInt(req.query.limit) || 9; 
-        const search = req.query.search || '';
-        const domain = req.query.domain || '';
-
-        // 2. Build the MongoDB Query Object
-        const query = {};
-
-        // If they selected a specific domain, filter by it
-        if (domain && domain !== 'All Domains') {
-            query.domain = domain;
+        if (!projectId || !message) {
+            return res.status(400).json({ message: "Project ID and message are required" });
         }
 
-        // If they typed in a search term
-        if (search) {
-            // Smart Search: First, check if the search term matches any Professor's name
-            const matchedProfessors = await User.find({
-                role: "FACULTY",
-                $or: [
-                    { firstName: { $regex: search, $options: 'i' } },
-                    { lastName: { $regex: search, $options: 'i' } }
-                ]
-            }).select('_id');
-
-            // Extract just their IDs (as strings, since professorUid is stored as a string)
-            const matchedProfessorUids = matchedProfessors.map(prof => prof._id.toString());
-
-            // Now, search for Projects where the Title OR Description OR Professor matches
-            query.$or = [
-                { title: { $regex: search, $options: 'i' } },
-                { description: { $regex: search, $options: 'i' } },
-                { professorUid: { $in: matchedProfessorUids } }
-            ];
+        // Check the project exists
+        const project = await Project.findById(projectId);
+        if (!project) {
+            return res.status(404).json({ message: "Project not found" });
         }
 
-        // 3. Calculate how many projects to skip based on the page number
-        const skip = (page - 1) * limit;
+        // Prevent duplicate applications
+        const existingApplication = await Application.findOne({ projectId, studentUid });
+        if (existingApplication) {
+            return res.status(400).json({ message: "You have already applied for this project" });
+        }
 
-        // 4. Fetch ONLY the specific page of projects from MongoDB
-        const projects = await Project.find(query)
-            .sort({ createdAt: -1 })
-            .skip(skip)
-            .limit(limit)
-            .lean();
-
-        // 5. Get the total count for the frontend pagination math
-        const totalProjects = await Project.countDocuments(query);
-        const totalPages = Math.ceil(totalProjects / limit);
-
-        // 6. Map Professor Names to the 9 fetched projects (Same as before)
-        const professorUids = projects.map(p => p.professorUid);
-        const professors = await User.find({ _id: { $in: professorUids } }).select('firstName lastName');
-
-        const professorMap = {};
-        professors.forEach(prof => {
-            professorMap[prof._id.toString()] = `${prof.firstName} ${prof.lastName}`;
+        const newApplication = await Application.create({
+            projectId,
+            studentUid,
+            professorUid: project.professorUid,
+            message,
+            resumeLink: resumeLink || "",
         });
 
-        const projectsWithNames = projects.map(p => ({
-            ...p,
-            professorName: professorMap[p.professorUid] || "Unknown Professor"
-        }));
+        // Notify the professor in real-time
+        const io = req.app.get('socketio');
+        if (io) {
+            io.to(project.professorUid).emit("newNotification", {
+                title: "New Application Received",
+                message: `A student applied for your project: ${project.title}`,
+                createdAt: new Date(),
+            });
+        }
 
-        // Send back the projects AND the pagination data
-        res.status(200).json({
-            projects: projectsWithNames,
-            currentPage: page,
-            totalPages: totalPages,
-            totalProjects: totalProjects
+        // Save a persistent notification for the professor
+        await Notification.create({
+            recipientUid: project.professorUid,
+            title: "New Application Received",
+            message: `A student applied for your project: ${project.title}`,
+            type: "NEW_APPLICATION",
+            link: `/manage-project/${projectId}`,
+            isRead: false,
         });
 
+        res.status(201).json(newApplication);
     } catch (error) {
-        console.error("Error fetching all projects:", error);
-        res.status(500).json({ message: "Server error while fetching projects" });
-    }
-}
-
-// Get projects for a professor
-export const getProjects = async(req,res) => {
-    try {
-        const professorUid = req.user._id.toString();
-        const projects = await Project.find({professorUid}).sort({createdAt: -1});
-        res.status(200).json(projects);
-    } catch (error) {
-        res.status(500).json({ message: "Server error"});
+        console.error("Error in applyForProject:", error);
+        res.status(500).json({ message: "Server error submitting application" });
     }
 };
 
-// Get projects for a student
-export const getStudentProjects = async(req,res) => {
+// @desc    Get all applications submitted by the logged-in student
+// @route   GET /api/applications/my-applications
+export const getStudentApplications = async (req, res) => {
     try {
         const studentUid = req.user._id.toString();
-        const projects = await Project.find({enrolledStudents: studentUid}).sort({createdAt: -1});
-        res.status(200).json(projects);
+
+        const applications = await Application.find({ studentUid })
+            .populate("projectId", "title domain status professorUid")
+            .sort({ appliedAt: -1 });
+
+        res.status(200).json(applications);
     } catch (error) {
-        res.status(500).json({message: "Server Error"});
+        console.error("Error in getStudentApplications:", error);
+        res.status(500).json({ message: "Server error fetching your applications" });
     }
 };
 
-export const getProjectById = async (req, res) => {
+// @desc    Get all applications for a specific project (faculty only)
+// @route   GET /api/applications/project/:projectId
+export const getProjectApplications = async (req, res) => {
     try {
-        const projectId = req.params.id;
-        
-        // Find the project by its MongoDB _id
+        const { projectId } = req.params;
+        const professorUid = req.user._id.toString();
+
+        // Verify the project belongs to this professor
         const project = await Project.findById(projectId);
-
         if (!project) {
-            return res.status(404).json({ message: "Project not found." });
+            return res.status(404).json({ message: "Project not found" });
+        }
+        if (project.professorUid !== professorUid) {
+            return res.status(403).json({ message: "Forbidden: This is not your project" });
         }
 
-        // Fetch the professor's name using their Mongo _id
-        const professor = await User.findById(project.professorUid);
-        
-        // Convert the Mongoose document to a plain JavaScript object so we can append data
-        const projectData = project.toObject();
-        
-        if (professor) {
-            projectData.professorName = `${professor.firstName} ${professor.lastName}`;
-        }
-
-        res.status(200).json(projectData);
+        const applications = await Application.find({ projectId }).sort({ appliedAt: -1 });
+        res.status(200).json(applications);
     } catch (error) {
-        console.error("Error fetching project by ID:", error);
-        
-        // If the ID is completely invalid/malformed, Mongoose throws a CastError
-        if (error.name === 'CastError') {
-            return res.status(400).json({ message: "Invalid project ID format." });
-        }
-        
-        res.status(500).json({ message: "Server error while fetching project details." });
+        console.error("Error in getProjectApplications:", error);
+        res.status(500).json({ message: "Server error fetching applications" });
     }
 };
 
-// Update a project (Edit details or change status to Completed)
-export const updateProject = async (req, res) => {
+// @desc    Faculty accepts or rejects an application
+// @route   PUT /api/applications/:applicationId/status
+export const updateApplicationStatus = async (req, res) => {
     try {
-        const { id } = req.params;
+        const { applicationId } = req.params;
+        const { status } = req.body;
         const professorUid = req.user._id.toString();
 
-        const project = await Project.findById(id);
-        if (!project) return res.status(404).json({ message: "Project not found" });
-
-        // Security: Ensure only the professor who created it can edit it
-        if (project.professorUid !== professorUid) {
-            return res.status(403).json({ message: "Unauthorized to edit this project" });
+        if (!["Accepted", "Rejected"].includes(status)) {
+            return res.status(400).json({ message: "Status must be 'Accepted' or 'Rejected'" });
         }
 
-        const updatedProject = await Project.findByIdAndUpdate(id, req.body, { returnDocument: 'after' });        res.status(200).json(updatedProject);
+        const application = await Application.findById(applicationId);
+        if (!application) {
+            return res.status(404).json({ message: "Application not found" });
+        }
+
+        // Only the owning professor can update the status
+        if (application.professorUid !== professorUid) {
+            return res.status(403).json({ message: "Forbidden" });
+        }
+
+        application.status = status;
+        await application.save();
+
+        // Notify the student of the decision
+        const project = await Project.findById(application.projectId);
+        const notificationMessage = status === "Accepted"
+            ? `Congratulations! Your application for "${project?.title}" has been accepted.`
+            : `Your application for "${project?.title}" was not selected this time.`;
+
+        await Notification.create({
+            recipientUid: application.studentUid,
+            title: `Application ${status}`,
+            message: notificationMessage,
+            type: "STATUS_UPDATE",
+            link: "/student-dashboard",
+            isRead: false,
+        });
+
+        // Real-time socket ping to the student
+        const io = req.app.get('socketio');
+        if (io) {
+            io.to(application.studentUid).emit("newNotification", {
+                title: `Application ${status}`,
+                message: notificationMessage,
+                createdAt: new Date(),
+            });
+        }
+
+        res.status(200).json({ message: `Application ${status.toLowerCase()} successfully`, application });
     } catch (error) {
-        console.error("Error updating project:", error);
-        res.status(500).json({ message: "Server error updating project" });
+        console.error("Error in updateApplicationStatus:", error);
+        res.status(500).json({ message: "Server error updating application status" });
     }
 };
 
-// Delete a project securely
-export const deleteProject = async (req, res) => {
+// @desc    Student withdraws their own application
+// @route   DELETE /api/applications/:id
+export const withdrawApplication = async (req, res) => {
     try {
         const { id } = req.params;
-        const professorUid = req.user._id.toString();
+        const studentUid = req.user._id.toString();
 
-        const project = await Project.findById(id);
-        if (!project) return res.status(404).json({ message: "Project not found" });
-
-        // Security check
-        if (project.professorUid !== professorUid) {
-            return res.status(403).json({ message: "Unauthorized to delete this project" });
+        const application = await Application.findById(id);
+        if (!application) {
+            return res.status(404).json({ message: "Application not found" });
         }
 
-        await Project.findByIdAndDelete(id);
-        
-        // Delete all applications associated with this project so they don't become ghost records!
-        await Application.deleteMany({ projectId: id }); // <-- Now it just uses the model imported at the top
+        // Only the student who applied can withdraw
+        if (application.studentUid !== studentUid) {
+            return res.status(403).json({ message: "Forbidden" });
+        }
 
-        res.status(200).json({ message: "Project deleted successfully" });
+        // Only allow withdrawal if still pending
+        if (application.status !== "Pending") {
+            return res.status(400).json({ message: "Cannot withdraw an application that has already been reviewed" });
+        }
+
+        await Application.findByIdAndDelete(id);
+        res.status(200).json({ message: "Application withdrawn successfully" });
     } catch (error) {
-        console.error("Error deleting project:", error);
-        res.status(500).json({ message: "Server error deleting project" });
+        console.error("Error in withdrawApplication:", error);
+        res.status(500).json({ message: "Server error withdrawing application" });
     }
 };

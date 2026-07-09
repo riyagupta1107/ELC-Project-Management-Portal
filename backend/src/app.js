@@ -8,6 +8,7 @@ import projectRoutes from "./routes/projectRoutes.js";
 import applicationRoutes from "./routes/applicationRoutes.js";
 import noticeRoutes from "./routes/noticeRoutes.js";
 import notificationRoutes from "./routes/notificationRoutes.js";
+import messageRoutes from "./routes/messageRoutes.js";
 import dotenv from 'dotenv';
 dotenv.config();
 
@@ -26,6 +27,7 @@ app.use("/api/projects", projectRoutes);
 app.use("/api/applications", applicationRoutes);
 app.use("/api/notices", noticeRoutes);
 app.use("/api/notifications", notificationRoutes);
+app.use("/api/messages", messageRoutes);
 
 const PORT = process.env.PORT;
 
