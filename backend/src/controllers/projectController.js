@@ -1,6 +1,8 @@
+import mongoose from "mongoose";
 import Project from "../models/Project.js";
 import User from "../models/User.js";
 import Application from "../models/Application.js";
+
 
 const GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions";
 const GROQ_MODEL = process.env.GROQ_MODEL || "llama-3.3-70b-versatile";
@@ -124,7 +126,7 @@ export const draftProjectDescription = async (req, res) => {
 export const addProject = async(req,res) => {
     try {
         const {title, domain, description, students, status} = req.body;
-        const professorUid = req.user.firebaseUid;
+        const professorUid = req.user._id.toString();
 
         if (!title || !description || !domain) {
             return res.status(400).json({message: "Title, Domain and Description are required"});
@@ -167,10 +169,10 @@ export const getAllProjects = async (req, res) => {
                     { firstName: { $regex: search, $options: 'i' } },
                     { lastName: { $regex: search, $options: 'i' } }
                 ]
-            }).select('firebaseUid');
+            }).select('_id');
 
-            // Extract just their UIDs
-            const matchedProfessorUids = matchedProfessors.map(prof => prof.firebaseUid);
+            // Extract just their IDs as strings (professorUid is stored as a string)
+            const matchedProfessorUids = matchedProfessors.map(prof => prof._id.toString());
 
             // Now, search for Projects where the Title OR Description OR Professor matches
             query.$or = [
@@ -194,13 +196,18 @@ export const getAllProjects = async (req, res) => {
         const totalProjects = await Project.countDocuments(query);
         const totalPages = Math.ceil(totalProjects / limit);
 
-        // 6. Map Professor Names to the 9 fetched projects (Same as before)
+        // 6. Map Professor Names to the fetched projects
+        //    Filter out legacy Firebase UID strings that are not valid MongoDB ObjectIds
+        //    to avoid a CastError on projects created before the JWT migration.
         const professorUids = projects.map(p => p.professorUid);
-        const professors = await User.find({ firebaseUid: { $in: professorUids } }).select('firebaseUid firstName lastName');
+        const validProfessorUids = professorUids.filter(uid =>
+            uid && mongoose.Types.ObjectId.isValid(uid)
+        );
+        const professors = await User.find({ _id: { $in: validProfessorUids } }).select('firstName lastName');
 
         const professorMap = {};
         professors.forEach(prof => {
-            professorMap[prof.firebaseUid] = `${prof.firstName} ${prof.lastName}`;
+            professorMap[prof._id.toString()] = `${prof.firstName} ${prof.lastName}`;
         });
 
         const projectsWithNames = projects.map(p => ({
@@ -225,7 +232,7 @@ export const getAllProjects = async (req, res) => {
 // Get projects for a professor
 export const getProjects = async(req,res) => {
     try {
-        const professorUid = req.user.firebaseUid;
+        const professorUid = req.user._id.toString();
         const projects = await Project.find({professorUid}).sort({createdAt: -1});
         res.status(200).json(projects);
     } catch (error) {
@@ -236,7 +243,7 @@ export const getProjects = async(req,res) => {
 // Get projects for a student
 export const getStudentProjects = async(req,res) => {
     try {
-        const studentUid = req.user.firebaseUid;
+        const studentUid = req.user._id.toString();
         const projects = await Project.find({enrolledStudents: studentUid}).sort({createdAt: -1});
         res.status(200).json(projects);
     } catch (error) {
@@ -255,8 +262,12 @@ export const getProjectById = async (req, res) => {
             return res.status(404).json({ message: "Project not found." });
         }
 
-        // Fetch the professor's name using their firebaseUid
-        const professor = await User.findOne({ firebaseUid: project.professorUid });
+        // Fetch the professor's name — guard against legacy Firebase UID strings
+        // that are not valid MongoDB ObjectIds (projects created before the JWT migration)
+        let professor = null;
+        if (project.professorUid && mongoose.Types.ObjectId.isValid(project.professorUid)) {
+            professor = await User.findById(project.professorUid);
+        }
         
         // Convert the Mongoose document to a plain JavaScript object so we can append data
         const projectData = project.toObject();
@@ -282,7 +293,7 @@ export const getProjectById = async (req, res) => {
 export const updateProject = async (req, res) => {
     try {
         const { id } = req.params;
-        const professorUid = req.user.firebaseUid;
+        const professorUid = req.user._id.toString();
 
         const project = await Project.findById(id);
         if (!project) return res.status(404).json({ message: "Project not found" });
@@ -300,11 +311,10 @@ export const updateProject = async (req, res) => {
 };
 
 // Delete a project securely
-// Delete a project securely
 export const deleteProject = async (req, res) => {
     try {
         const { id } = req.params;
-        const professorUid = req.user.firebaseUid;
+        const professorUid = req.user._id.toString();
 
         const project = await Project.findById(id);
         if (!project) return res.status(404).json({ message: "Project not found" });

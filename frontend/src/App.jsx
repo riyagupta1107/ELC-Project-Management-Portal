@@ -19,19 +19,14 @@ function App() {
   return (
     <Router>
       <Routes>
+        {/* PUBLIC routes — no auth required */}
         <Route path='/' element={<Login />} />
         <Route path='/register' element={<Register />} />
-        <Route path='/home' element={<Home />} />
-        <Route path='/projects' element={<Projects />} />
-        <Route path='/professor-profile' element={<ProfessorProfile />} />
-        <Route path='/faculties' element={<Faculties />} />
-        <Route path='/project-details/:id' element={<ProjectDetails />} />
-        <Route path='/apply-modal/:id' element={<ApplyModal />} />
 
         {/* FACULTY Only Routes */}
         <Route element={<ProtectedRoute allowedRole="FACULTY" />}>
           <Route path="/faculty-dashboard" element={<FacultyDashboard />} />
-          <Route path="/manage-project/:id" element={<ManageProject />} /> {/* If you have this */}
+          <Route path="/manage-project/:id" element={<ManageProject />} />
         </Route>
 
         {/* STUDENT Only Routes */}
@@ -41,11 +36,18 @@ function App() {
 
         {/* SHARED Protected Routes (Any logged-in user) */}
         <Route element={<ProtectedRoute />}>
+          <Route path='/home' element={<Home />} />
+          <Route path='/projects' element={<Projects />} />
+          <Route path='/professor-profile' element={<ProfessorProfile />} />
+          <Route path='/faculties' element={<Faculties />} />
+          <Route path='/project-details/:id' element={<ProjectDetails />} />
+          <Route path='/apply-modal/:id' element={<ApplyModal />} />
           <Route path="/profile" element={<Profile />} />
         </Route>
       </Routes>
     </Router>
   )
 }
+
 
 export default App;

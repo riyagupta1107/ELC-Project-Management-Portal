@@ -7,20 +7,20 @@ const applicationSchema = new mongoose.Schema({
         required: true
     },
     studentUid: {
-        type: String, // Matches the firebaseUid in your User model
+        type: String, // Stores the student's MongoDB _id as a string
         required: true
     },
     professorUid: {
-        type: String, // Helps the professor quickly fetch their pending apps
+        type: String, // Stores the professor's MongoDB _id as a string
         required: true
     },
     message: {
         type: String,
-        required: true // From your modal's text area
+        required: true
     },
     resumeLink: {
         type: String,
-        default: "" // From your modal's optional input
+        default: ""
     },
     status: {
         type: String,

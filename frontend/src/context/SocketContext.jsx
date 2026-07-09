@@ -12,22 +12,22 @@ export const SocketProvider = ({ children }) => {
     const { user } = useAuth(); // Retrieve the user state
 
     useEffect(() => {
-        // Connect to the backend socket server
+        // Only connect to socket when a user is logged in
+        if (!user) return;
+
         const newSocket = io(import.meta.env.VITE_API_BASE_URL?.replace('/api', '') || 'http://localhost:5000');
         setSocket(newSocket);
 
-        if (user) {
-            // Join personal room for notifications using MongoDB _id
-            newSocket.emit("joinUserRoom", user._id);
+        // Join personal room for notifications using MongoDB _id
+        newSocket.emit("joinUserRoom", user._id);
 
-            // Listen for real-time notifications!
-            newSocket.on("newNotification", (notification) => {
-                toast.success(notification.title + "\n" + notification.message, {
-                    duration: 5000,
-                    icon: '🔔',
-                });
+        // Listen for real-time notifications!
+        newSocket.on("newNotification", (notification) => {
+            toast.success(notification.title + "\n" + notification.message, {
+                duration: 5000,
+                icon: '🔔',
             });
-        }
+        });
 
         return () => {
             newSocket.disconnect();
