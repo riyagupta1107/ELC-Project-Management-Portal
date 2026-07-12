@@ -36,6 +36,9 @@ services:
   frontend:
     build:
       context: ./frontend
+      args:
+        # Pass VITE_API_URL as a build-time arg so Vite bakes it into the JS bundle
+        - VITE_API_URL=http://16.171.240.204:5000
     container_name: elc_frontend
     ports:
       - "80:80" # Maps port 80 on your machine to port 80 in the Nginx container
