@@ -12,6 +12,13 @@ RUN npm install
 # Copy the rest of the frontend code
 COPY . .
 
+# Declare build-time arguments for Vite env vars
+# These must be passed via --build-arg or docker-compose build args
+ARG VITE_API_URL
+
+# Make them available as environment variables during the npm build
+ENV VITE_API_URL=$VITE_API_URL
+
 # Build the Vite project for production (creates the /dist folder)
 RUN npm run build
 
@@ -26,9 +33,9 @@ RUN rm -rf /usr/share/nginx/html/*
 # Copy the static files from the build stage to Nginx's serving directory
 COPY --from=build /app/dist /usr/share/nginx/html
 
-# Note: If your React app uses client-side routing (React Router), 
-# you typically need a custom nginx configuration to redirect all traffic to index.html.
-# For now, we will expose port 80.
+# Copy custom Nginx config to handle React Router client-side routing
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+
 EXPOSE 80
 
 # Start Nginx

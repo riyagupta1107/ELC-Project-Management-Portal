@@ -15,7 +15,7 @@ export const SocketProvider = ({ children }) => {
         // Only connect to socket when a user is logged in
         if (!user) return;
 
-        const newSocket = io(import.meta.env.VITE_API_BASE_URL?.replace('/api', '') || 'http://localhost:5000');
+        const newSocket = io(import.meta.env.VITE_API_URL || 'http://16.171.240.204:5000');
         setSocket(newSocket);
 
         // Join personal room for notifications using MongoDB _id
