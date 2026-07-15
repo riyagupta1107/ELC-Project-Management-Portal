@@ -1,7 +1,9 @@
 import axios from 'axios';
 
 const axiosInstance = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://16.171.240.204:5000',
+  // Keep browser API calls same-origin. Vite proxies this in development and
+  // Nginx proxies it to the backend container in production.
+  baseURL: '/api',
 });
 
 // Intercept requests and attach the JWT token

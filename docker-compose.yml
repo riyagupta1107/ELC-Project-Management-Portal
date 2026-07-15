@@ -1,12 +1,8 @@
-version: '3.8'
-
 services:
   # 1. MongoDB Service (For local development testing)
   mongo:
     image: mongo:latest
     container_name: elc_mongo
-    ports:
-      - "27017:27017"
     volumes:
       - mongo_data:/data/db # Persists your database even if the container stops
     networks:
@@ -17,14 +13,13 @@ services:
     build: 
       context: ./backend
     container_name: elc_backend
-    ports:
-      - "5000:5000"
     env_file:
       - ./backend/.env
     environment:
       # Use the MongoDB container's name ('mongo') as the host in the URI
       - MONGO_URI=mongodb://mongo:27017/elc_db
       - PORT=5000
+      - CLIENT_ORIGIN=http://localhost
       # Add other environment variables from your backend/.env here
       # - JWT_SECRET="thakgayayaar"
     depends_on:
@@ -36,9 +31,6 @@ services:
   frontend:
     build:
       context: ./frontend
-      args:
-        # Pass VITE_API_URL as a build-time arg so Vite bakes it into the JS bundle
-        - VITE_API_URL=http://16.171.240.204:5000
     container_name: elc_frontend
     ports:
       - "80:80" # Maps port 80 on your machine to port 80 in the Nginx container
