@@ -14,7 +14,7 @@ export const AuthProvider = ({ children }) => {
       if (token) {
         try {
           // If token exists, fetch the user profile
-          const response = await axiosInstance.get('/api/users/profile');
+          const response = await axiosInstance.get('/users/profile');
           setUser(response.data);
         } catch (error) {
           console.error("Token invalid or expired", error);
@@ -27,7 +27,7 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   const login = async (email, password) => {
-    const response = await axiosInstance.post('/api/users/login', { email, password });
+    const response = await axiosInstance.post('/users/login', { email, password });
     const { token, ...userData } = response.data;
     localStorage.setItem('token', token); // Save token
     setUser(userData); // Save user state (token excluded)
@@ -35,7 +35,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   const register = async (userData) => {
-    const response = await axiosInstance.post('/api/users/register', userData);
+    const response = await axiosInstance.post('/users/register', userData);
     const { token, ...newUserData } = response.data;
     localStorage.setItem('token', token);
     setUser(newUserData); // Save user state (token excluded)
