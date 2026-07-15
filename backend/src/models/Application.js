@@ -33,4 +33,6 @@ const applicationSchema = new mongoose.Schema({
     }
 });
 
+applicationSchema.index({ projectId: 1, studentUid: 1 }, { unique: true });
+
 export default mongoose.model("Application", applicationSchema);

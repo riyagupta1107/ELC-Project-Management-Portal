@@ -84,7 +84,7 @@ function ManageProject() {
 
   const handleUpdateStatus = async (applicationId, newStatus) => {
     try {
-      await axiosInstance.put(`/api/applications/${applicationId}/status`, { status: newStatus });
+      const response = await axiosInstance.put(`/api/applications/${applicationId}/status`, { status: newStatus });
 
       setApplications(prevApps => 
         prevApps.map(app => 
@@ -92,12 +92,7 @@ function ManageProject() {
         )
       );
       
-      if (newStatus === "Accepted") {
-        setProject(prev => ({
-          ...prev,
-          enrolledStudents: [...(prev.enrolledStudents || []), "new_student"]
-        }));
-      }
+      if (response.data.project) setProject(response.data.project);
     } catch (err) {
       console.error("Error updating status:", err);
       toast.error("Failed to update application status.");

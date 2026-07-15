@@ -1,4 +1,4 @@
 node_modules/
-*.pem
 *.key
 .env
+ec2-key.pem

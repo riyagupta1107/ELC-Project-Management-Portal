@@ -12,11 +12,11 @@ import { requireRole } from "../middleware/requireRole.js";
 
 const router = express.Router();
 
-router.post("/apply", requireUser, applyForProject);
-router.get("/my-applications", requireUser, getStudentApplications);
+router.post("/apply", requireUser, requireRole("STUDENT"), applyForProject);
+router.get("/my-applications", requireUser, requireRole("STUDENT"), getStudentApplications);
 
 router.get("/project/:projectId", requireUser, requireRole("FACULTY"), getProjectApplications);
 router.put("/:applicationId/status", requireUser, requireRole("FACULTY"), updateApplicationStatus);
-router.delete("/:id", requireUser, withdrawApplication);
+router.delete("/:id", requireUser, requireRole("STUDENT"), withdrawApplication);
 
 export default router;

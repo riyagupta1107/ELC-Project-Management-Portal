@@ -1,23 +1,20 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { auth } from '../firebase';
 import { useSocket } from '../context/SocketContext';
+import { useAuth } from '../context/AuthContext';
 import axiosInstance from '../api/axiosInstance';
 
 function ProjectChat({ projectId }) {
     const [messages, setMessages] = useState([]);
     const [newMessage, setNewMessage] = useState("");
-    const [currentUser, setCurrentUser] = useState(null);
+    const { user: currentUser } = useAuth();
     const socket = useSocket();
     const messagesEndRef = useRef(null);
 
     useEffect(() => {
-        const user = auth.currentUser;
-        if (user) setCurrentUser(user);
-
         // 1. Fetch historical messages
         const fetchMessages = async () => {
             try {
-                const res = await axiosInstance.get(`/messages/${projectId}`);
+                const res = await axiosInstance.get(`/api/messages/${projectId}`);
                 setMessages(res.data);
             } catch (err) {
                 console.error("Failed to load chat history", err);
@@ -52,8 +49,6 @@ function ProjectChat({ projectId }) {
 
         const messageData = {
             projectId,
-            senderUid: currentUser.uid,
-            senderName: currentUser.displayName?.split(' ')[0] || "User",
             text: newMessage
         };
 
@@ -78,7 +73,7 @@ function ProjectChat({ projectId }) {
                     </div>
                 ) : (
                     messages.map((msg, idx) => {
-                        const isMe = currentUser?.uid === msg.senderUid;
+                        const isMe = currentUser?._id === msg.senderUid;
                         return (
                             <div key={idx} className={`flex flex-col ${isMe ? 'items-end' : 'items-start'}`}>
                                 {!isMe && <span className="text-[10px] text-gray-500 ml-1 mb-1 font-semibold">{msg.senderName}</span>}

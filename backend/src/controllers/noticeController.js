@@ -37,11 +37,12 @@ export const createNotice = async (req, res) => {
         const io = req.app.get('socketio'); 
         
         if (io) {
-            // This rings the bell for anyone currently logged in
-            io.emit("newNotification", {
-                title: `New Notice: ${title}`,
-                message: `${authorName} posted a new announcement.`,
-                createdAt: new Date()
+            students.forEach((student) => {
+                io.to(`user:${student._id}`).emit("newNotification", {
+                    title: `New Notice: ${title}`,
+                    message: `${authorName} posted a new announcement.`,
+                    createdAt: new Date()
+                });
             });
         }
 

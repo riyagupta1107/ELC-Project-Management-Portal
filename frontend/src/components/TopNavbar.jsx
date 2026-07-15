@@ -3,8 +3,8 @@ import { useAuth } from '../context/AuthContext';
 import logo from '../assets/thapar-logo.jpg';
 
 export default function TopNavbar({ subtitle }) {
-  const { userRole } = useAuth();
-  const dashboardPath = userRole === 'FACULTY' ? '/faculty-dashboard' : '/student-dashboard';
+  const { user, logout } = useAuth();
+  const dashboardPath = user?.role === 'FACULTY' ? '/faculty-dashboard' : '/student-dashboard';
 
   const navLinkClass = ({ isActive }) =>
     `inline-flex items-center px-4 py-3 border-b-2 text-sm font-medium h-full transition ${
@@ -33,6 +33,7 @@ export default function TopNavbar({ subtitle }) {
             <NavLink end to="/profile" className={navLinkClass}>
               Profile
             </NavLink>
+            <button onClick={logout} className="text-sm font-medium text-gray-500 hover:text-brickRed">Logout</button>
           </div>
         </div>
       </div>

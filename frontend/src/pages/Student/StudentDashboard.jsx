@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import TopNavbar from '../../components/TopNavbar';
-import { useSocket } from '../../context/SocketContext';
 import { useAuth } from '../../context/AuthContext'; // NEW: Imported AuthContext
 import axiosInstance from '../../api/axiosInstance'; // NEW: Use centralized Axios
 import toast from 'react-hot-toast';
@@ -43,9 +43,9 @@ function ApplicationCard({ application, handleWithdraw }) {
     <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 flex items-start gap-4">
       <span className={`mt-1 w-2.5 h-2.5 rounded-full flex-shrink-0 ${s.dot}`} />
       <div className="flex-1 min-w-0">
-        <h5 className="font-bold text-gray-800 truncate">{application.projectTitle}</h5>
+        <h5 className="font-bold text-gray-800 truncate">{application.project?.title || 'Deleted project'}</h5>
         <p className="text-xs text-gray-500 mt-0.5">
-          Prof. {application.professorName || 'Faculty'} &bull;{' '}
+          Prof. {application.project?.professorName || 'Faculty'} &bull;{' '}
           {new Date(application.appliedAt).toLocaleDateString('en-IN', {
             day: 'numeric', month: 'short', year: 'numeric',
           })}
@@ -100,8 +100,6 @@ function EnrolledCard({ project }) {
 // MAIN COMPONENT
 // =====================================================================
 function StudentDashboard() {
-  const navigate = useNavigate();
-  const socket = useSocket();
   const { user } = useAuth(); // NEW: Get user context
 
   const [greeting, setGreeting] = useState('');
@@ -112,32 +110,20 @@ function StudentDashboard() {
   const [enrolledProjects, setEnrolled] = useState([]);
   const [activeTab, setActiveTab] = useState('applications');
 
-  // Notification State
-  const [notifications, setNotifications] = useState([]);
-  const [unreadCount, setUnreadCount] = useState(0);
 
   // --- DATA FETCHING ---
   const fetchData = async () => {
     try {
       // NEW: axiosInstance automatically attaches the JWT token!
-      const [projectsRes, appsRes, notifRes] = await Promise.all([
+      const [projectsRes, appsRes] = await Promise.all([
         axiosInstance.get('/api/projects/all-projects'),
-        axiosInstance.get('/api/applications/my-applications'),
-        axiosInstance.get('/api/notifications')
+        axiosInstance.get('/api/applications/my-applications')
       ]);
 
       setAllProjects(projectsRes.data.projects || []);
       setApplications(appsRes.data || []);
-      setEnrolled(appsRes.data?.filter((a) => a.status === 'Accepted') || []);
+      setEnrolled(appsRes.data?.filter((a) => a.status === 'Accepted' && a.project) || []);
 
-      const data = notifRes.data;
-      const notificationsArray = Array.isArray(data) ? data 
-                              : Array.isArray(data?.notifications) ? data.notifications 
-                              : Array.isArray(data?.data) ? data.data 
-                              : []; 
-      
-      const unread = notificationsArray.filter(n => !n.isRead);
-      setUnreadCount(unread.length); 
     } catch (err) {
       console.error('Error fetching dashboard data:', err);
     } finally {
@@ -156,18 +142,6 @@ function StudentDashboard() {
     else setGreeting('Good Evening');
 
   }, [user]); // Re-run if user object loads
-
-  // --- REAL-TIME NOTIFICATIONS ---
-  useEffect(() => {
-    if (socket) {
-      const handleNewNotification = (notification) => {
-        setNotifications(prev => [notification, ...prev]);
-        setUnreadCount(prev => prev + 1);
-      };
-      socket.on("newNotification", handleNewNotification);
-      return () => socket.off("newNotification", handleNewNotification);
-    }
-  }, [socket]);
 
   const handleWithdraw = async (applicationId) => {
     if (!window.confirm("Are you sure you want to withdraw this application?")) return;
@@ -240,7 +214,7 @@ function StudentDashboard() {
                 {enrolledProjects.length === 0 ? <p className="text-gray-500 italic">Not enrolled in any projects yet.</p> :
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {enrolledProjects.map(app => (
-                      <EnrolledCard key={app._id} project={{ _id: app.projectId, title: app.projectTitle, description: app.projectDescription, domain: app.projectDomain, professorName: app.professorName, createdAt: app.appliedAt }} />
+                      <EnrolledCard key={app._id} project={app.project} />
                     ))}
                   </div>}
               </section>

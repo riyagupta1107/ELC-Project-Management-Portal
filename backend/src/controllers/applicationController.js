@@ -2,6 +2,7 @@
 import Application from "../models/Application.js";
 import Project from "../models/Project.js";
 import Notification from "../models/Notification.js";
+import User from "../models/User.js";
 
 // @desc    Student applies for a project
 // @route   POST /api/applications/apply
@@ -18,6 +19,9 @@ export const applyForProject = async (req, res) => {
         const project = await Project.findById(projectId);
         if (!project) {
             return res.status(404).json({ message: "Project not found" });
+        }
+        if (project.status !== "Ongoing" || project.enrolledStudents.length >= project.students) {
+            return res.status(400).json({ message: "This project is no longer accepting applications" });
         }
 
         // Prevent duplicate applications
@@ -37,7 +41,7 @@ export const applyForProject = async (req, res) => {
         // Notify the professor in real-time
         const io = req.app.get('socketio');
         if (io) {
-            io.to(project.professorUid).emit("newNotification", {
+            io.to(`user:${project.professorUid}`).emit("newNotification", {
                 title: "New Application Received",
                 message: `A student applied for your project: ${project.title}`,
                 createdAt: new Date(),
@@ -68,10 +72,19 @@ export const getStudentApplications = async (req, res) => {
         const studentUid = req.user._id.toString();
 
         const applications = await Application.find({ studentUid })
-            .populate("projectId", "title domain status professorUid")
-            .sort({ appliedAt: -1 });
-
-        res.status(200).json(applications);
+            .populate("projectId", "title domain description status professorUid students enrolledStudents createdAt")
+            .sort({ appliedAt: -1 })
+            .lean();
+        const professorIds = applications.map((app) => app.projectId?.professorUid).filter(Boolean);
+        const professors = await User.find({ _id: { $in: professorIds } }).select("firstName lastName").lean();
+        const names = new Map(professors.map((professor) => [professor._id.toString(), `${professor.firstName} ${professor.lastName}`]));
+        res.status(200).json(applications.map((application) => ({
+            ...application,
+            project: application.projectId ? {
+                ...application.projectId,
+                professorName: names.get(application.projectId.professorUid) || "Unknown Faculty",
+            } : null,
+        })));
     } catch (error) {
         console.error("Error in getStudentApplications:", error);
         res.status(500).json({ message: "Server error fetching your applications" });
@@ -94,8 +107,14 @@ export const getProjectApplications = async (req, res) => {
             return res.status(403).json({ message: "Forbidden: This is not your project" });
         }
 
-        const applications = await Application.find({ projectId }).sort({ appliedAt: -1 });
-        res.status(200).json(applications);
+        const applications = await Application.find({ projectId }).sort({ appliedAt: -1 }).lean();
+        const students = await User.find({ _id: { $in: applications.map((app) => app.studentUid) } })
+            .select("firstName lastName email").lean();
+        const studentMap = new Map(students.map((student) => [student._id.toString(), student]));
+        res.status(200).json(applications.map((application) => {
+            const student = studentMap.get(application.studentUid);
+            return { ...application, studentName: student ? `${student.firstName} ${student.lastName}` : "Unknown Student", studentEmail: student?.email || "" };
+        }));
     } catch (error) {
         console.error("Error in getProjectApplications:", error);
         res.status(500).json({ message: "Server error fetching applications" });
@@ -124,6 +143,18 @@ export const updateApplicationStatus = async (req, res) => {
             return res.status(403).json({ message: "Forbidden" });
         }
 
+        if (application.status !== "Pending") {
+            return res.status(400).json({ message: "This application has already been reviewed" });
+        }
+        let updatedProject = null;
+        if (status === "Accepted") {
+            updatedProject = await Project.findOneAndUpdate(
+                { _id: application.projectId, professorUid, status: "Ongoing", enrolledStudents: { $ne: application.studentUid }, $expr: { $lt: [{ $size: "$enrolledStudents" }, "$students"] } },
+                { $addToSet: { enrolledStudents: application.studentUid } },
+                { new: true },
+            );
+            if (!updatedProject) return res.status(400).json({ message: "Project is full or no longer accepting students" });
+        }
         application.status = status;
         await application.save();
 
@@ -145,14 +176,14 @@ export const updateApplicationStatus = async (req, res) => {
         // Real-time socket ping to the student
         const io = req.app.get('socketio');
         if (io) {
-            io.to(application.studentUid).emit("newNotification", {
+            io.to(`user:${application.studentUid}`).emit("newNotification", {
                 title: `Application ${status}`,
                 message: notificationMessage,
                 createdAt: new Date(),
             });
         }
 
-        res.status(200).json({ message: `Application ${status.toLowerCase()} successfully`, application });
+        res.status(200).json({ message: `Application ${status.toLowerCase()} successfully`, application, project: updatedProject });
     } catch (error) {
         console.error("Error in updateApplicationStatus:", error);
         res.status(500).json({ message: "Server error updating application status" });

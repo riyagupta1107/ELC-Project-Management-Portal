@@ -10,17 +10,18 @@ function ProjectDetails() {
   const { user } = useAuth(); 
 
   const [resumeLink, setResumeLink] = useState('');
+  const [applicationMessage, setApplicationMessage] = useState('');
   const [project, setProject] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [applications, setApplications] = useState([]);
   const [alreadyApplied, setAlreadyApplied] = useState(false);
 
   const toggleModal = () => {
     setIsModalOpen(!isModalOpen);
     setResumeLink('');
+    setApplicationMessage('');
   };
 
   const submitApplication = async (e) => {
@@ -30,6 +31,7 @@ function ProjectDetails() {
     try {
       await axiosInstance.post('/api/applications/apply', {
         projectId: id,
+        message: applicationMessage.trim(),
         resumeLink: resumeLink
       });
 
@@ -53,8 +55,7 @@ function ProjectDetails() {
         ]);
         
         setProject(projectRes.data);
-        setApplications(appsRes.data);
-        const hasApplied = appsRes.data.some(app => app.projectId === id);
+        const hasApplied = appsRes.data.some((app) => String(app.project?._id || app.projectId?._id || app.projectId) === id);
         setAlreadyApplied(hasApplied);
       } catch (err) {
         console.error("Error fetching data: ", err);
@@ -145,7 +146,7 @@ function ProjectDetails() {
                   </div>
                 </div>
 
-                {project.status !== "Completed" && (
+                {user?.role === "STUDENT" && project.status !== "Completed" && (
                   <div className="pt-4">
                     {alreadyApplied ? (
                       <div className="text-center py-3">
@@ -179,6 +180,12 @@ function ProjectDetails() {
             </div>
 
             <form onSubmit={submitApplication} className="p-6">
+              <div className="mb-6">
+                <label className="block text-sm font-medium text-gray-700 mb-2">Why are you interested? <span className="text-red-500">*</span></label>
+                <textarea required value={applicationMessage} onChange={(e) => setApplicationMessage(e.target.value)} rows="4"
+                  className="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-brickRed focus:border-brickRed outline-none"
+                  placeholder="Briefly introduce your relevant skills and interest." />
+              </div>
               <div className="mb-6">
                 <label className="block text-sm font-medium text-gray-700 mb-2">Resume / Portfolio Link <span className="text-red-500">*</span></label>
                 <input

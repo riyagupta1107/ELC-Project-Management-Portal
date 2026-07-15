@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import TopNavbar from '../../components/TopNavbar';
 import axiosInstance from '../../api/axiosInstance';
-import { useSocket } from '../../context/SocketContext';
 import { useAuth } from '../../context/AuthContext'; // NEW: Imported AuthContext
 import toast from 'react-hot-toast';
 
@@ -16,8 +15,6 @@ const DOMAINS = [
 ];
 
 function ProfessorDashboard() {
-  const navigate = useNavigate();
-  const socket = useSocket();
   const { user } = useAuth(); // NEW: Hooked into JWT auth state
 
   const [greeting, setGreeting] = useState('');
@@ -25,9 +22,6 @@ function ProfessorDashboard() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   
-  // Notice & Notification State
-  const [notifications, setNotifications] = useState([]);
-  const [unreadCount, setUnreadCount] = useState(0);
 
   // Form State for New Project
   const [newProject, setNewProject] = useState({
@@ -53,31 +47,7 @@ function ProfessorDashboard() {
     }
   };
 
-  // --- 2. HANDLE NOTIFICATIONS ---
-  useEffect(() => {
-    const fetchNotifications = async () => {
-        try {
-            const res = await axiosInstance.get('/api/notifications');
-            setNotifications(res.data);
-            setUnreadCount(res.data.filter(n => !n.isRead).length);
-        } catch (err) {
-            console.error("Failed to fetch notifications", err);
-        }
-    };
-
-    if (user) fetchNotifications();
-
-    if (socket) {
-        const handleNewNotification = (notification) => {
-            setNotifications(prev => [notification, ...prev]);
-            setUnreadCount(prev => prev + 1);
-        };
-        socket.on("newNotification", handleNewNotification);
-        return () => socket.off("newNotification", handleNewNotification);
-      }
-  }, [socket, user]); 
-
-  // --- 3. HANDLE INITIAL LOAD ---
+  // --- 2. HANDLE INITIAL LOAD ---
   useEffect(() => {
     if (user) {
       fetchProjects();
@@ -155,7 +125,7 @@ function ProfessorDashboard() {
       setIsModalOpen(false); 
       setNewProject({ title: '', domain:[], description: '', students: 0, status: 'Ongoing' }); 
       toast.success("Project Created Successfully!");
-    } catch (error) {
+    } catch {
       toast.error("Failed to create project");
     }
   };
@@ -305,12 +275,6 @@ function ProfessorDashboard() {
 
 function ProjectCard({ project, isPast }) {
   const navigate = useNavigate();
-  const getDomainColor = (domain) => {
-    if (domain.includes("AI") || domain.includes("Machine")) return "bg-purple-50 text-purple-700 border-purple-200";
-    if (domain.includes("Web")) return "bg-blue-50 text-blue-700 border-blue-200";
-    if (domain.includes("Cyber")) return "bg-red-50 text-red-700 border-red-200";
-    return "bg-gray-50 text-gray-700 border-gray-200";
-  }
   return (
     <div className="bg-white rounded-xl shadow-sm hover:shadow-md border border-gray-100 p-6 flex flex-col justify-between h-64 transition-transform duration-200 hover:-translate-y-1">
       <div>

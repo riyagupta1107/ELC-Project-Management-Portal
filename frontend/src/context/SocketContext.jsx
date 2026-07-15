@@ -15,11 +15,11 @@ export const SocketProvider = ({ children }) => {
         // Only connect to socket when a user is logged in
         if (!user) return;
 
-        const newSocket = io(import.meta.env.VITE_API_URL || 'http://16.171.240.204:5000');
+        const token = localStorage.getItem('token');
+        const newSocket = io(import.meta.env.VITE_API_URL || 'http://localhost:5000', {
+            auth: { token },
+        });
         setSocket(newSocket);
-
-        // Join personal room for notifications using MongoDB _id
-        newSocket.emit("joinUserRoom", user._id);
 
         // Listen for real-time notifications!
         newSocket.on("newNotification", (notification) => {
@@ -31,6 +31,7 @@ export const SocketProvider = ({ children }) => {
 
         return () => {
             newSocket.disconnect();
+            setSocket(null);
         };
     }, [user]); // Re-run when user state changes
 
