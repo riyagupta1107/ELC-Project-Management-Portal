@@ -35,7 +35,7 @@ function Projects() {
     const fetchProjects = async () => {
       setLoading(true);
       try {
-        const response = await axiosInstance.get("/api/projects/all-projects", {
+        const response = await axiosInstance.get("/projects/all-projects", {
           params: {
             page: page,
             limit: 9,

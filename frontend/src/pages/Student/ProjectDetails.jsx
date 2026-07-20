@@ -29,7 +29,7 @@ function ProjectDetails() {
     setSubmitting(true);
 
     try {
-      await axiosInstance.post('/api/applications/apply', {
+      await axiosInstance.post('/applications/apply', {
         projectId: id,
         message: applicationMessage.trim(),
         resumeLink: resumeLink
@@ -50,8 +50,8 @@ function ProjectDetails() {
     const fetchProjectDetailsAndApps = async () => {
       try {
         const [projectRes, appsRes] = await Promise.all([
-          axiosInstance.get(`/api/projects/${id}`),
-          axiosInstance.get('/api/applications/my-applications')
+          axiosInstance.get(`/projects/${id}`),
+          axiosInstance.get('/applications/my-applications')
         ]);
         
         setProject(projectRes.data);

@@ -38,7 +38,7 @@ function ProfessorDashboard() {
   // --- 1. FETCH PROJECTS FROM DB ---
   const fetchProjects = async () => {
     try {
-      const response = await axiosInstance.get("/api/projects/my-prof-projects");
+      const response = await axiosInstance.get("/projects/my-prof-projects");
       setProjects(response.data); 
     } catch (error) {
       console.error("Error fetching projects:", error);
@@ -94,7 +94,7 @@ function ProfessorDashboard() {
     setDraftResult(null);
 
     try {
-      const response = await axiosInstance.post("/api/projects/draft", { rawInput });
+      const response = await axiosInstance.post("/projects/draft", { rawInput });
       setDraftResult(response.data);
       setDraftSuggestion(response.data.description || '');
       setDraftSuggestedDomains(response.data.domains || []);
@@ -120,7 +120,7 @@ function ProfessorDashboard() {
     if (!user) return;
 
     try {
-      const response = await axiosInstance.post("/api/projects/add", newProject);
+      const response = await axiosInstance.post("/projects/add", newProject);
       setProjects([response.data, ...projects]); 
       setIsModalOpen(false); 
       setNewProject({ title: '', domain:[], description: '', students: 0, status: 'Ongoing' }); 

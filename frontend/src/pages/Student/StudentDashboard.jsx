@@ -116,8 +116,8 @@ function StudentDashboard() {
     try {
       // NEW: axiosInstance automatically attaches the JWT token!
       const [projectsRes, appsRes] = await Promise.all([
-        axiosInstance.get('/api/projects/all-projects'),
-        axiosInstance.get('/api/applications/my-applications')
+        axiosInstance.get('/projects/all-projects'),
+        axiosInstance.get('/applications/my-applications')
       ]);
 
       setAllProjects(projectsRes.data.projects || []);
@@ -146,7 +146,7 @@ function StudentDashboard() {
   const handleWithdraw = async (applicationId) => {
     if (!window.confirm("Are you sure you want to withdraw this application?")) return;
     try {
-      await axiosInstance.delete(`/api/applications/${applicationId}`);
+      await axiosInstance.delete(`/applications/${applicationId}`);
       setApplications(prev => prev.filter(app => app._id !== applicationId));
       toast.success("Application withdrawn.");
     } catch (error) {

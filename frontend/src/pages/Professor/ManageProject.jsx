@@ -26,8 +26,8 @@ function ManageProject() {
     const fetchData = async () => {
       try {
         const [projectRes, appsRes] = await Promise.all([
-          axiosInstance.get(`/api/projects/${id}`),
-          axiosInstance.get(`/api/applications/project/${id}`)
+          axiosInstance.get(`/projects/${id}`),
+          axiosInstance.get(`/applications/project/${id}`)
         ]);
 
         setProject(projectRes.data);
@@ -59,7 +59,7 @@ function ManageProject() {
   const handleEditSubmit = async (e) => {
     e.preventDefault();
     try {
-      const res = await axiosInstance.put(`/api/projects/${id}`, editForm);
+      const res = await axiosInstance.put(`/projects/${id}`, editForm);
       
       setProject(res.data);
       setIsEditModalOpen(false); 
@@ -84,7 +84,7 @@ function ManageProject() {
 
   const handleUpdateStatus = async (applicationId, newStatus) => {
     try {
-      const response = await axiosInstance.put(`/api/applications/${applicationId}/status`, { status: newStatus });
+      const response = await axiosInstance.put(`/applications/${applicationId}/status`, { status: newStatus });
 
       setApplications(prevApps => 
         prevApps.map(app => 
@@ -102,7 +102,7 @@ function ManageProject() {
   const handleMarkCompleted = async () => {
     if (!window.confirm("Are you sure you want to mark this project as Completed? It will be moved to past projects.")) return;
     try {
-      await axiosInstance.put(`/api/projects/${id}`, { status: "Completed" });
+      await axiosInstance.put(`/projects/${id}`, { status: "Completed" });
       setProject(prev => ({ ...prev, status: "Completed" }));
       toast.success("Project successfully marked as completed!");
     } catch (err) {
@@ -114,7 +114,7 @@ function ManageProject() {
   const handleDeleteProject = async () => {
     if (!window.confirm("WARNING: Are you sure you want to delete this project? All student applications will be lost. This cannot be undone.")) return;
     try {
-      await axiosInstance.delete(`/api/projects/${id}`);
+      await axiosInstance.delete(`/projects/${id}`);
       toast.success("Project deleted successfully.");
       navigate('/faculty-dashboard'); 
     } catch (err) {
