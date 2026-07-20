@@ -1,14 +1,6 @@
 services:
-  # 1. MongoDB Service (For local development testing)
-  mongo:
-    image: mongo:latest
-    container_name: elc_mongo
-    volumes:
-      - mongo_data:/data/db # Persists your database even if the container stops
-    networks:
-      - elc_network
 
-  # 2. Backend Node.js Service
+  # 1. Backend Node.js Service
   backend:
     build: 
       context: ./backend
@@ -16,18 +8,12 @@ services:
     env_file:
       - ./backend/.env
     environment:
-      # Use the MongoDB container's name ('mongo') as the host in the URI
-      - MONGO_URI=mongodb://mongo:27017/elc_db
       - PORT=5000
-      - CLIENT_ORIGIN=http://localhost
-      # Add other environment variables from your backend/.env here
-      # - JWT_SECRET="thakgayayaar"
-    depends_on:
-      - mongo
+      - CLIENT_ORIGIN=http://16.171.240.204
     networks:
       - elc_network
 
-  # 3. Frontend React/Vite Service
+  # 2. Frontend React/Vite Service
   frontend:
     build:
       context: ./frontend
@@ -43,7 +29,3 @@ services:
 networks:
   elc_network:
     driver: bridge
-
-# Define the volume for database persistence
-volumes:
-  mongo_data:
