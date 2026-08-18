@@ -27,7 +27,7 @@ function Profile() {
   useEffect(() => {
     const fetchProfile = async () => {
       try {
-        const response = await axiosInstance.get("/api/users/profile");
+        const response = await axiosInstance.get("/users/profile");
         const userData = response.data;
         
         setFormData({
@@ -63,7 +63,7 @@ function Profile() {
     setMessage({ text: '', type: '' });
 
     try {
-      await axiosInstance.put("/api/users/profile", formData);
+      await axiosInstance.put("/users/profile", formData);
       setMessage({ text: "Profile updated successfully!", type: "success" });
     } catch (error) {
       console.error("Error saving profile:", error);

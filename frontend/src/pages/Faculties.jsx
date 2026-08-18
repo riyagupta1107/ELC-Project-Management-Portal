@@ -13,7 +13,7 @@ function Faculties() {
   useEffect(() => {
     const fetchFaculties = async () => {
       try {
-        const response = await axiosInstance.get("/api/users/faculties");
+        const response = await axiosInstance.get("/users/faculties");
         setFaculties(response.data);
       } catch (error) {
         console.error("Error fetching faculties:", error);
